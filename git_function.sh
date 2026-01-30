@@ -519,7 +519,8 @@ config_remote_url() {
     
     echo -e "${YELLOW}请输入新的仓库地址${NC}"
     echo -e "${CYAN}SSH 格式: git@github.com:用户名/仓库名.git${NC}"
-    echo -e "${CYAN}HTTP 格式: https://github.com/用户名/仓库名.git${NC}"
+    echo -e "${CYAN}HTTP 格式: https://github.com/用户名/仓库名${NC}"
+    echo -e "${CYAN}         或 https://github.com/用户名/仓库名.git${NC}"
     echo ""
     echo -n -e "${YELLOW}新地址: ${NC}"
     read -r new_url
@@ -529,12 +530,19 @@ config_remote_url() {
         return
     fi
     
+    # 自动补全 .git 后缀（如果没有的话）
+    if [[ "$new_url" =~ ^https?:// ]] && [[ ! "$new_url" =~ \.git$ ]]; then
+        new_url="${new_url}.git"
+        echo -e "${BLUE}已自动添加 .git 后缀${NC}"
+    fi
+    
     # 验证格式（支持 SSH 和 HTTP/HTTPS）
     if [[ ! "$new_url" =~ ^(git@.*\.git|https?://.*\.git)$ ]]; then
         echo ""
         echo -e "${RED}✗ 格式错误${NC}"
         echo -e "${YELLOW}支持的格式：${NC}"
         echo "  SSH:   git@github.com:用户名/仓库名.git"
+        echo "  HTTPS: https://github.com/用户名/仓库名"
         echo "  HTTPS: https://github.com/用户名/仓库名.git"
         return
     fi
