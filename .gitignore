@@ -1,0 +1,12 @@
+# SSH 密钥文件 - 不要提交到仓库
+ssh_keys/
+*.pem
+*.key
+id_*
+!*.pub
+
+# Git 相关
+.git/
+
+# 日志文件
+*.log
