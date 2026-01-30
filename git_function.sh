@@ -57,13 +57,14 @@ show_menu() {
     echo -e "  ${GREEN}2${NC}. 从远程拉取并合并"
     echo -e "  ${GREEN}3${NC}. 从远程拉取但不合并 (fetch)"
     echo -e "  ${GREEN}4${NC}. 强制推送 (慎用)"
-    echo -e "  ${GREEN}5${NC}. 查看状态"
-    echo -e "  ${GREEN}6${NC}. 查看提交历史"
+    echo -e "  ${GREEN}5${NC}. 强制拉取并覆盖本地 (慎用)"
+    echo -e "  ${GREEN}6${NC}. 查看状态"
+    echo -e "  ${GREEN}7${NC}. 查看提交历史"
     echo ""
     echo -e "${BLUE}【配置管理】${NC}"
-    echo -e "  ${GREEN}7${NC}. 配置远程仓库地址"
-    echo -e "  ${GREEN}8${NC}. 配置 Git 用户信息"
-    echo -e "  ${GREEN}9${NC}. 生成 SSH 密钥"
+    echo -e "  ${GREEN}8${NC}. 配置远程仓库地址"
+    echo -e "  ${GREEN}9${NC}. 配置 Git 用户信息"
+    echo -e "  ${GREEN}10${NC}. 生成 SSH 密钥"
     echo ""
     echo -e "${BLUE}【测试工具】${NC}"
     echo -e "  ${GREEN}t${NC}. 测试 SSH 连接"
@@ -74,19 +75,26 @@ show_menu() {
     echo -n -e "${YELLOW}请输入选项: ${NC}"
 }
 
-# 检查 SSH 密钥
+# 检查 SSH 密钥（仅当使用 SSH 地址时）
 check_ssh_key() {
+    # 如果使用 HTTPS，不需要检查 SSH 密钥
+    if [[ "$REPO_URL" =~ ^https?:// ]]; then
+        return 0
+    fi
+    
     if [ ! -f "$SSH_KEY" ]; then
         echo -e "${RED}✗ SSH 密钥不存在: $SSH_KEY${NC}"
-        echo -e "${YELLOW}请先使用选项 9 生成 SSH 密钥${NC}"
+        echo -e "${YELLOW}请先使用选项 10 生成 SSH 密钥${NC}"
         return 1
     fi
     return 0
 }
 
-# 配置 Git SSH 命令
+# 配置 Git SSH 命令（如果使用 SSH 地址）
 setup_git_ssh() {
-    export GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes"
+    if [[ "$REPO_URL" =~ ^git@ ]]; then
+        export GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes"
+    fi
 }
 
 # 初始化 Git 仓库（在父目录）
@@ -170,14 +178,27 @@ push_to_github() {
         git branch -M main
     fi
     
-    if GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes" git push -u origin main; then
-        echo ""
-        echo -e "${GREEN}✓ 推送成功！${NC}"
-        echo -e "${BLUE}仓库地址: https://github.com/aGROWLz/Comfy-Workflow-Manager${NC}"
+    # 根据仓库类型选择命令
+    if [[ "$REPO_URL" =~ ^git@ ]]; then
+        if GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes" git push -u origin main; then
+            echo ""
+            echo -e "${GREEN}✓ 推送成功！${NC}"
+            echo -e "${BLUE}仓库地址: ${REPO_URL/git@github.com:/https://github.com/}${NC}"
+        else
+            echo ""
+            echo -e "${RED}✗ 推送失败${NC}"
+            echo -e "${YELLOW}提示：如果远程有更新，请先选择选项 2 拉取并合并${NC}"
+        fi
     else
-        echo ""
-        echo -e "${RED}✗ 推送失败${NC}"
-        echo -e "${YELLOW}提示：如果远程有更新，请先选择选项 2 拉取并合并${NC}"
+        if git push -u origin main; then
+            echo ""
+            echo -e "${GREEN}✓ 推送成功！${NC}"
+            echo -e "${BLUE}仓库地址: $REPO_URL${NC}"
+        else
+            echo ""
+            echo -e "${RED}✗ 推送失败${NC}"
+            echo -e "${YELLOW}提示：如果远程有更新，请先选择选项 2 拉取并合并${NC}"
+        fi
     fi
 }
 
@@ -198,13 +219,25 @@ pull_and_merge() {
     echo ""
     echo -e "${BLUE}从远程拉取代码...${NC}"
     
-    if GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes" git pull origin main --allow-unrelated-histories; then
-        echo ""
-        echo -e "${GREEN}✓ 拉取并合并成功${NC}"
+    # 根据仓库类型选择命令
+    if [[ "$REPO_URL" =~ ^git@ ]]; then
+        if GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes" git pull origin main --allow-unrelated-histories; then
+            echo ""
+            echo -e "${GREEN}✓ 拉取并合并成功${NC}"
+        else
+            echo ""
+            echo -e "${RED}✗ 拉取失败${NC}"
+            echo -e "${YELLOW}可能存在冲突，请手动解决或使用选项 5 强制拉取${NC}"
+        fi
     else
-        echo ""
-        echo -e "${RED}✗ 拉取失败${NC}"
-        echo -e "${YELLOW}可能存在冲突，请手动解决${NC}"
+        if git pull origin main --allow-unrelated-histories; then
+            echo ""
+            echo -e "${GREEN}✓ 拉取并合并成功${NC}"
+        else
+            echo ""
+            echo -e "${RED}✗ 拉取失败${NC}"
+            echo -e "${YELLOW}可能存在冲突，请手动解决或使用选项 5 强制拉取${NC}"
+        fi
     fi
 }
 
@@ -225,21 +258,41 @@ fetch_only() {
     echo ""
     echo -e "${BLUE}从远程获取代码...${NC}"
     
-    if GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes" git fetch origin; then
-        echo ""
-        echo -e "${GREEN}✓ 获取成功${NC}"
-        echo ""
-        echo -e "${BLUE}远程分支：${NC}"
-        git branch -r
-        echo ""
-        echo -e "${YELLOW}提示：代码已获取但未合并，使用以下命令查看差异：${NC}"
-        echo "  git diff main origin/main"
-        echo ""
-        echo -e "${YELLOW}如需合并，使用以下命令：${NC}"
-        echo "  git merge origin/main"
+    # 根据仓库类型选择命令
+    if [[ "$REPO_URL" =~ ^git@ ]]; then
+        if GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes" git fetch origin; then
+            echo ""
+            echo -e "${GREEN}✓ 获取成功${NC}"
+            echo ""
+            echo -e "${BLUE}远程分支：${NC}"
+            git branch -r
+            echo ""
+            echo -e "${YELLOW}提示：代码已获取但未合并，使用以下命令查看差异：${NC}"
+            echo "  git diff main origin/main"
+            echo ""
+            echo -e "${YELLOW}如需合并，使用以下命令：${NC}"
+            echo "  git merge origin/main"
+        else
+            echo ""
+            echo -e "${RED}✗ 获取失败${NC}"
+        fi
     else
-        echo ""
-        echo -e "${RED}✗ 获取失败${NC}"
+        if git fetch origin; then
+            echo ""
+            echo -e "${GREEN}✓ 获取成功${NC}"
+            echo ""
+            echo -e "${BLUE}远程分支：${NC}"
+            git branch -r
+            echo ""
+            echo -e "${YELLOW}提示：代码已获取但未合并，使用以下命令查看差异：${NC}"
+            echo "  git diff main origin/main"
+            echo ""
+            echo -e "${YELLOW}如需合并，使用以下命令：${NC}"
+            echo "  git merge origin/main"
+        else
+            echo ""
+            echo -e "${RED}✗ 获取失败${NC}"
+        fi
     fi
 }
 
@@ -282,16 +335,78 @@ force_push() {
         git branch -M main
     fi
     
-    if GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes" git push -f origin main; then
-        echo ""
-        echo -e "${GREEN}✓ 强制推送成功${NC}"
+    # 根据仓库类型选择命令
+    if [[ "$REPO_URL" =~ ^git@ ]]; then
+        if GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes" git push -f origin main; then
+            echo ""
+            echo -e "${GREEN}✓ 强制推送成功${NC}"
+        else
+            echo ""
+            echo -e "${RED}✗ 强制推送失败${NC}"
+        fi
     else
-        echo ""
-        echo -e "${RED}✗ 强制推送失败${NC}"
+        if git push -f origin main; then
+            echo ""
+            echo -e "${GREEN}✓ 强制推送成功${NC}"
+        else
+            echo ""
+            echo -e "${RED}✗ 强制推送失败${NC}"
+        fi
     fi
 }
 
-# 功能 5: 查看状态
+# 功能 5: 强制拉取并覆盖本地
+force_pull() {
+    echo ""
+    echo -e "${CYAN}=========================================="
+    echo -e "  强制拉取并覆盖本地"
+    echo -e "==========================================${NC}"
+    echo ""
+    echo -e "${RED}⚠️  警告：强制拉取会覆盖本地的所有更改！${NC}"
+    echo -e "${RED}⚠️  所有未提交的本地修改都会丢失！${NC}"
+    echo ""
+    echo -n -e "${YELLOW}确定要强制拉取吗？(输入 YES 确认): ${NC}"
+    read -r confirm
+    
+    if [ "$confirm" != "YES" ]; then
+        echo -e "${YELLOW}已取消${NC}"
+        return
+    fi
+    
+    check_ssh_key || return 1
+    setup_git_ssh
+    init_git_repo
+    setup_remote
+    
+    cd "$PARENT_DIR"
+    echo ""
+    echo -e "${BLUE}获取远程代码...${NC}"
+    
+    # 根据仓库类型选择命令
+    if [[ "$REPO_URL" =~ ^git@ ]]; then
+        GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes" git fetch origin
+    else
+        git fetch origin
+    fi
+    
+    echo ""
+    echo -e "${BLUE}重置本地分支到远程状态...${NC}"
+    
+    # 确保在 main 分支
+    git checkout main 2>/dev/null || git checkout -b main
+    
+    # 强制重置到远程分支
+    git reset --hard origin/main
+    
+    # 清理未跟踪的文件
+    git clean -fd
+    
+    echo ""
+    echo -e "${GREEN}✓ 强制拉取成功${NC}"
+    echo -e "${YELLOW}本地代码已完全同步到远程状态${NC}"
+}
+
+# 功能 6: 查看状态
 show_status() {
     echo ""
     echo -e "${CYAN}=========================================="
@@ -548,18 +663,21 @@ main() {
                 force_push
                 ;;
             5)
-                show_status
+                force_pull
                 ;;
             6)
-                show_history
+                show_status
                 ;;
             7)
-                config_remote_url
+                show_history
                 ;;
             8)
-                config_git_user
+                config_remote_url
                 ;;
             9)
+                config_git_user
+                ;;
+            10)
                 generate_ssh_key
                 ;;
             t|T)
