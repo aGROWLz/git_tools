@@ -87,6 +87,22 @@ check_ssh_key() {
         echo -e "${YELLOW}请先使用选项 10 生成 SSH 密钥${NC}"
         return 1
     fi
+    
+    # 检查并修正私钥权限
+    local current_perms=$(stat -c "%a" "$SSH_KEY" 2>/dev/null || stat -f "%A" "$SSH_KEY" 2>/dev/null)
+    if [ "$current_perms" != "600" ]; then
+        echo -e "${YELLOW}修正 SSH 密钥权限为 600...${NC}"
+        chmod 600 "$SSH_KEY"
+    fi
+    
+    # 检查并修正公钥权限
+    if [ -f "${SSH_KEY}.pub" ]; then
+        local pub_perms=$(stat -c "%a" "${SSH_KEY}.pub" 2>/dev/null || stat -f "%A" "${SSH_KEY}.pub" 2>/dev/null)
+        if [ "$pub_perms" != "644" ]; then
+            chmod 644 "${SSH_KEY}.pub"
+        fi
+    fi
+    
     return 0
 }
 
@@ -642,12 +658,19 @@ generate_ssh_key() {
     echo -e "${BLUE}生成 SSH 密钥...${NC}"
     ssh-keygen -t ed25519 -C "$email" -f "$SSH_KEY" -N ""
     
-    # 设置正确的权限
+    # 设置正确的权限（必须是 600，否则 Git 会拒绝使用）
     chmod 600 "$SSH_KEY"
     chmod 644 "${SSH_KEY}.pub"
     
+    # 验证权限设置
+    local key_perms=$(stat -c "%a" "$SSH_KEY" 2>/dev/null || stat -f "%A" "$SSH_KEY" 2>/dev/null)
+    if [ "$key_perms" != "600" ]; then
+        echo -e "${RED}✗ 警告：无法设置正确的密钥权限${NC}"
+    fi
+    
     echo ""
     echo -e "${GREEN}✓ SSH 密钥生成成功${NC}"
+    echo -e "${GREEN}✓ 权限已设置为 600（私钥）和 644（公钥）${NC}"
     echo ""
     echo -e "${BLUE}密钥位置：${NC}"
     echo "  私钥: $SSH_KEY"
