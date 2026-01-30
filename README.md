@@ -6,6 +6,7 @@
 
 - ✅ 使用项目内的 SSH 密钥，不依赖系统 SSH 配置
 - ✅ 支持 SSH 和 HTTPS 两种仓库地址格式
+- ✅ **智能地址转换**：输入 HTTPS 自动生成对应的 SSH 地址
 - ✅ 无需账号密码（SSH 模式），或使用账号密码（HTTPS 模式）
 - ✅ 密钥存储在项目的 `ssh_keys` 目录中
 - ✅ 完整的 Git 操作菜单界面
@@ -99,7 +100,7 @@ chmod +x git_function.sh
 
 ### 仓库地址格式
 
-工具支持两种仓库地址格式：
+工具支持两种仓库地址格式，并且**支持智能转换**：
 
 **1. SSH 格式（推荐）**
 ```
@@ -117,6 +118,16 @@ https://github.com/用户名/仓库名.git
 - 需要：每次操作输入用户名和密码（或配置 credential helper）
 - 适合：临时使用或不想配置 SSH 的场景
 
+**智能转换功能：**
+- 输入 HTTPS 地址时，脚本会自动提取用户名和仓库名
+- 自动生成对应的 SSH 地址并保存
+- 配置 SSH 密钥后，可以无缝切换到免密模式
+- 示例：
+  ```
+  输入: https://github.com/aGROWLz/Comfy-Workflow-Manager.git
+  自动生成: git@github.com:aGROWLz/Comfy-Workflow-Manager.git
+  ```
+
 ### 修改仓库地址
 
 有两种方式修改仓库地址：
@@ -124,12 +135,27 @@ https://github.com/用户名/仓库名.git
 **方式 1：使用菜单（推荐）**
 ```
 运行脚本后选择选项 8，输入新的仓库地址
+支持 SSH 或 HTTPS 格式，输入 HTTPS 会自动生成 SSH 地址
 ```
 
 **方式 2：手动编辑**
 ```bash
 # 编辑 git_function.sh 文件，修改 REPO_URL 变量
 REPO_URL="你的仓库地址"
+```
+
+**智能转换示例：**
+```bash
+# 输入 HTTPS 地址
+新地址: https://github.com/aGROWLz/Comfy-Workflow-Manager.git
+
+# 脚本输出
+检测到 HTTPS 地址，已自动生成对应的 SSH 地址：
+SSH: git@github.com:aGROWLz/Comfy-Workflow-Manager.git
+
+✓ 远程仓库地址已更新
+Git 远程地址: https://github.com/aGROWLz/Comfy-Workflow-Manager.git
+SSH 地址（已保存）: git@github.com:aGROWLz/Comfy-Workflow-Manager.git
 ```
 
 ### SSH 密钥位置
@@ -211,10 +237,25 @@ chmod +x git_function.sh
 适合临时使用或不想配置 SSH：
 
 1. 配置 HTTPS 仓库地址（选项 8）
+   - 输入：`https://github.com/用户名/仓库名.git`
+   - 脚本会自动生成对应的 SSH 地址
 2. 直接开始使用（会提示输入密码）
 3. 可选：配置 credential helper 保存密码
 
-### 场景 3：强制同步
+### 场景 3：HTTPS 转 SSH（推荐）
+
+先用 HTTPS 快速开始，后续升级到 SSH 免密：
+
+1. 配置 HTTPS 地址（选项 8）
+   - 脚本自动生成 SSH 地址
+2. 使用 HTTPS 推送拉取（需要密码）
+3. 想要免密时：
+   - 生成 SSH 密钥（选项 10）
+   - 添加公钥到 GitHub
+   - 测试连接（选项 t）
+   - 自动切换到 SSH 模式，无需重新配置地址
+
+### 场景 4：强制同步
 
 当本地和远程有冲突，想完全使用远程版本：
 

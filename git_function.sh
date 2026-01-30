@@ -523,11 +523,28 @@ config_remote_url() {
         return
     fi
     
-    # 更新脚本中的 REPO_URL
-    sed -i "s|^REPO_URL=.*|REPO_URL=\"$new_url\"|" "$SCRIPT_DIR/git_function.sh"
-    REPO_URL="$new_url"
+    # 如果输入的是 HTTPS 地址，自动转换为 SSH 地址并保存
+    local ssh_url="$new_url"
+    if [[ "$new_url" =~ ^https?:// ]]; then
+        # 提取用户名和仓库名
+        # 支持 https://github.com/用户名/仓库名.git 格式
+        if [[ "$new_url" =~ https?://github\.com/([^/]+)/(.+)\.git ]]; then
+            local username="${BASH_REMATCH[1]}"
+            local reponame="${BASH_REMATCH[2]}"
+            ssh_url="git@github.com:${username}/${reponame}.git"
+            
+            echo ""
+            echo -e "${BLUE}检测到 HTTPS 地址，已自动生成对应的 SSH 地址：${NC}"
+            echo -e "${GREEN}SSH: $ssh_url${NC}"
+            echo ""
+        fi
+    fi
     
-    # 如果已经初始化了 Git，也更新远程地址
+    # 更新脚本中的 REPO_URL（保存 SSH 格式）
+    sed -i "s|^REPO_URL=.*|REPO_URL=\"$ssh_url\"|" "$SCRIPT_DIR/git_function.sh"
+    REPO_URL="$ssh_url"
+    
+    # 如果已经初始化了 Git，也更新远程地址（使用用户输入的格式）
     cd "$PARENT_DIR"
     if [ -d .git ]; then
         if git remote | grep -q "^origin$"; then
@@ -539,13 +556,21 @@ config_remote_url() {
     
     echo ""
     echo -e "${GREEN}✓ 远程仓库地址已更新${NC}"
-    echo "新地址: $new_url"
+    echo "Git 远程地址: $new_url"
+    if [[ "$new_url" != "$ssh_url" ]]; then
+        echo "SSH 地址（已保存）: $ssh_url"
+    fi
     
     # 提示使用方式
     if [[ "$new_url" =~ ^https?:// ]]; then
         echo ""
-        echo -e "${YELLOW}提示：使用 HTTPS 地址时，推送需要输入用户名和密码${NC}"
-        echo -e "${YELLOW}或者配置 Git credential helper 来保存凭据${NC}"
+        echo -e "${YELLOW}提示：${NC}"
+        echo "  - 当前使用 HTTPS 地址，推送需要输入用户名和密码"
+        echo "  - 如需使用 SSH 免密推送，请："
+        echo "    1. 生成 SSH 密钥（选项 10）"
+        echo "    2. 添加公钥到 GitHub"
+        echo "    3. 测试连接（选项 t）"
+        echo "    4. 脚本会自动使用 SSH: $ssh_url"
     fi
 }
 
