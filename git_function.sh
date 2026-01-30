@@ -386,8 +386,9 @@ config_remote_url() {
         echo ""
     fi
     
-    echo -e "${YELLOW}请输入新的仓库地址（SSH 格式）${NC}"
-    echo -e "${CYAN}示例: git@github.com:用户名/仓库名.git${NC}"
+    echo -e "${YELLOW}请输入新的仓库地址${NC}"
+    echo -e "${CYAN}SSH 格式: git@github.com:用户名/仓库名.git${NC}"
+    echo -e "${CYAN}HTTP 格式: https://github.com/用户名/仓库名.git${NC}"
     echo ""
     echo -n -e "${YELLOW}新地址: ${NC}"
     read -r new_url
@@ -397,10 +398,13 @@ config_remote_url() {
         return
     fi
     
-    # 验证格式
-    if [[ ! "$new_url" =~ ^git@.*\.git$ ]]; then
+    # 验证格式（支持 SSH 和 HTTP/HTTPS）
+    if [[ ! "$new_url" =~ ^(git@.*\.git|https?://.*\.git)$ ]]; then
         echo ""
-        echo -e "${RED}✗ 格式错误，应该是 git@github.com:用户名/仓库名.git${NC}"
+        echo -e "${RED}✗ 格式错误${NC}"
+        echo -e "${YELLOW}支持的格式：${NC}"
+        echo "  SSH:   git@github.com:用户名/仓库名.git"
+        echo "  HTTPS: https://github.com/用户名/仓库名.git"
         return
     fi
     
@@ -421,6 +425,13 @@ config_remote_url() {
     echo ""
     echo -e "${GREEN}✓ 远程仓库地址已更新${NC}"
     echo "新地址: $new_url"
+    
+    # 提示使用方式
+    if [[ "$new_url" =~ ^https?:// ]]; then
+        echo ""
+        echo -e "${YELLOW}提示：使用 HTTPS 地址时，推送需要输入用户名和密码${NC}"
+        echo -e "${YELLOW}或者配置 Git credential helper 来保存凭据${NC}"
+    fi
 }
 
 # 功能 8: 配置 Git 用户信息
