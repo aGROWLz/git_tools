@@ -61,6 +61,10 @@ show_menu() {
     echo -e "  ${GREEN}6${NC}. 查看状态"
     echo -e "  ${GREEN}7${NC}. 查看提交历史"
     echo ""
+    echo -e "${BLUE}【工具自身 Git 操作】${NC}"
+    echo -e "  ${GREEN}u${NC}. 更新工具自身 (Pull)"
+    echo -e "  ${GREEN}p${NC}. 推送工具自身 (Push)"
+    echo ""
     echo -e "${BLUE}【配置管理】${NC}"
     echo -e "  ${GREEN}8${NC}. 配置远程仓库地址"
     echo -e "  ${GREEN}9${NC}. 配置 Git 用户信息"
@@ -696,6 +700,55 @@ generate_ssh_key() {
     echo "4. 保存后使用选项 7 测试连接"
 }
 
+# 功能：更新工具自身
+update_self() {
+    echo ""
+    echo -e "${CYAN}=========================================="
+    echo -e "  更新工具自身 (git_function)"
+    echo -e "==========================================${NC}"
+    echo ""
+    
+    cd "$SCRIPT_DIR"
+    if [ ! -d .git ]; then
+        echo -e "${YELLOW}工具目录未关联 Git 仓库${NC}"
+        return
+    fi
+    
+    echo -e "${BLUE}正在从工具仓库拉取更新...${NC}"
+    git pull
+    echo -e "${GREEN}✓ 更新尝试完成${NC}"
+}
+
+# 功能：推送工具自身
+push_self() {
+    echo ""
+    echo -e "${CYAN}=========================================="
+    echo -e "  推送工具自身 (git_function)"
+    echo -e "==========================================${NC}"
+    echo ""
+    
+    cd "$SCRIPT_DIR"
+    if [ ! -d .git ]; then
+        echo -e "${YELLOW}工具目录未关联 Git 仓库${NC}"
+        return
+    fi
+    
+    echo -e "${BLUE}添加更改...${NC}"
+    git add .
+    
+    echo -n -e "${YELLOW}请输入提交信息: ${NC}"
+    read -r commit_msg
+    if [ -z "$commit_msg" ]; then
+        commit_msg="update: git_function tools"
+    fi
+    
+    git commit -m "$commit_msg" || echo "没有可提交的更改"
+    
+    echo -e "${BLUE}推送到工具仓库...${NC}"
+    git push
+    echo -e "${GREEN}✓ 推送完成${NC}"
+}
+
 # 主循环
 main() {
     # 启动时自动添加到 .gitignore
@@ -726,6 +779,12 @@ main() {
                 ;;
             7)
                 show_history
+                ;;
+            u|U)
+                update_self
+                ;;
+            p|P)
+                push_self
                 ;;
             8)
                 config_remote_url

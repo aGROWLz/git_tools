@@ -378,6 +378,50 @@ function Generate-SSHKey {
     Write-Host "========================================="
 }
 
+# 功能：更新工具自身
+function Update-Self {
+    Write-Color "`n==========================================" "Cyan"
+    Write-Color "  更新工具自身 (git_function)" "Cyan"
+    Write-Color "==========================================" "Cyan"
+    
+    Push-Location $SCRIPT_DIR
+    if (-not (Test-Path ".git")) {
+        Write-Color "工具目录未关联 Git 仓库" "Yellow"
+    } else {
+        Write-Color "`n正在从工具仓库拉取更新..." "Blue"
+        git pull
+        Write-Color "✓ 更新尝试完成" "Green"
+    }
+    Pop-Location
+}
+
+# 功能：推送工具自身
+function Push-Self {
+    Write-Color "`n==========================================" "Cyan"
+    Write-Color "  推送工具自身 (git_function)" "Cyan"
+    Write-Color "==========================================" "Cyan"
+    
+    Push-Location $SCRIPT_DIR
+    if (-not (Test-Path ".git")) {
+        Write-Color "工具目录未关联 Git 仓库" "Yellow"
+    } else {
+        Write-Color "`n添加更改..." "Blue"
+        git add .
+        
+        $commitMsg = Read-Host "请输入提交信息 (默认为: update: git_function tools)"
+        if ([string]::IsNullOrWhiteSpace($commitMsg)) {
+            $commitMsg = "update: git_function tools"
+        }
+        
+        git commit -m $commitMsg
+        
+        Write-Color "`n推送到工具仓库..." "Blue"
+        git push
+        Write-Color "✓ 推送完成" "Green"
+    }
+    Pop-Location
+}
+
 # 功能 t: 测试 SSH 连接
 function Test-SSHConnection {
     Write-Color "`n==========================================" "Cyan"
@@ -424,6 +468,10 @@ function Show-Menu {
     Write-Color "  6. 查看状态" "Green"
     Write-Color "  7. 查看提交历史" "Green"
     Write-Host ""
+    Write-Color "【工具自身 Git 操作】" "Blue"
+    Write-Color "  u. 更新工具自身 (Pull)" "Green"
+    Write-Color "  p. 推送工具自身 (Push)" "Green"
+    Write-Host ""
     Write-Color "【配置管理】" "Blue"
     Write-Color "  8. 配置远程仓库地址" "Green"
     Write-Color "  9. 配置 Git 用户信息" "Green"
@@ -455,6 +503,8 @@ while ($true) {
             Pop-Location
         }
         "7" { Show-History }
+        "u" { Update-Self }
+        "p" { Push-Self }
         "8" { Config-RemoteUrl }
         "9" { Config-GitUser }
         "10" { Generate-SSHKey }
