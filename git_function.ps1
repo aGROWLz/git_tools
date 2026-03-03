@@ -1,4 +1,4 @@
-﻿﻿﻿# ComfyUI Workflow Manager - Git 功能管理脚本 (PowerShell 版)
+﻿﻿﻿﻿# ComfyUI Workflow Manager - Git 功能管理脚本 (PowerShell 版)
 # 仓库地址: git@github.com:aGROWLz/Comfy-Workflow-Manager.git
 
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -14,7 +14,7 @@ $PARENT_DIR = Split-Path -Parent $SCRIPT_DIR
 
 # 配置 - 使用项目内的 SSH 密钥
 $SSH_KEY = Join-Path $SCRIPT_DIR "ssh_keys\id_ed25519_github"
-$REPO_URL = "https://github.com/aGROWLz/git_function"
+$REPO_URL = "https://github.com/aGROWLz/Time-to-start"
 
 # 颜色定义
 function Write-Color {
