@@ -64,6 +64,7 @@ show_menu() {
     echo -e "${BLUE}【工具自身 Git 操作】${NC}"
     echo -e "  ${GREEN}u${NC}. 更新工具自身 (Pull)"
     echo -e "  ${GREEN}p${NC}. 推送工具自身 (Push)"
+    echo -e "  ${GREEN}fp${NC}. 强制推送工具自身 (Force Push)"
     echo ""
     echo -e "${BLUE}【配置管理】${NC}"
     echo -e "  ${GREEN}8${NC}. 配置远程仓库地址"
@@ -749,6 +750,36 @@ push_self() {
     echo -e "${GREEN}✓ 推送完成${NC}"
 }
 
+# 功能：强制推送工具自身
+force_push_self() {
+    echo ""
+    echo -e "${CYAN}=========================================="
+    echo -e "  强制推送工具自身 (git_function)"
+    echo -e "==========================================${NC}"
+    echo ""
+    echo -e "${RED}⚠️  警告：这会覆盖远程工具仓库！${NC}"
+    echo -n -e "${YELLOW}确定要强制推送吗？(输入 YES 确认): ${NC}"
+    read -r confirm
+    if [ "$confirm" != "YES" ]; then
+        echo -e "${YELLOW}已取消${NC}"
+        return
+    fi
+    
+    cd "$SCRIPT_DIR"
+    if [ ! -d .git ]; then
+        echo -e "${YELLOW}工具目录未关联 Git 仓库${NC}"
+        return
+    fi
+    
+    echo -e "${BLUE}添加更改...${NC}"
+    git add .
+    git commit -m "force update: git_function tools" || echo "没有可提交的更改"
+    
+    echo -e "${BLUE}强制推送到工具仓库...${NC}"
+    git push -f
+    echo -e "${GREEN}✓ 强制推送完成${NC}"
+}
+
 # 主循环
 main() {
     # 启动时自动添加到 .gitignore
@@ -785,6 +816,9 @@ main() {
                 ;;
             p|P)
                 push_self
+                ;;
+            fp|FP)
+                force_push_self
                 ;;
             8)
                 config_remote_url

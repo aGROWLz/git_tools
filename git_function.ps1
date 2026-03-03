@@ -422,6 +422,34 @@ function Push-Self {
     Pop-Location
 }
 
+# 功能：强制推送工具自身
+function Force-Push-Self {
+    Write-Color "`n==========================================" "Cyan"
+    Write-Color "  强制推送工具自身 (git_function)" "Cyan"
+    Write-Color "==========================================" "Cyan"
+    Write-Color "⚠️  警告：这会覆盖远程工具仓库！" "Red"
+    
+    $confirm = Read-Host "`n确定要强制推送吗？(输入 YES 确认)"
+    if ($confirm -ne "YES") {
+        Write-Color "已取消" "Yellow"
+        return
+    }
+    
+    Push-Location $SCRIPT_DIR
+    if (-not (Test-Path ".git")) {
+        Write-Color "工具目录未关联 Git 仓库" "Yellow"
+    } else {
+        Write-Color "`n添加更改..." "Blue"
+        git add .
+        git commit -m "force update: git_function tools (PS)"
+        
+        Write-Color "`n强制推送到工具仓库..." "Blue"
+        git push -f
+        Write-Color "✓ 强制推送完成" "Green"
+    }
+    Pop-Location
+}
+
 # 功能 t: 测试 SSH 连接
 function Test-SSHConnection {
     Write-Color "`n==========================================" "Cyan"
@@ -471,6 +499,7 @@ function Show-Menu {
     Write-Color "【工具自身 Git 操作】" "Blue"
     Write-Color "  u. 更新工具自身 (Pull)" "Green"
     Write-Color "  p. 推送工具自身 (Push)" "Green"
+    Write-Color "  fp. 强制推送工具自身 (Force Push)" "Green"
     Write-Host ""
     Write-Color "【配置管理】" "Blue"
     Write-Color "  8. 配置远程仓库地址" "Green"
@@ -505,6 +534,7 @@ while ($true) {
         "7" { Show-History }
         "u" { Update-Self }
         "p" { Push-Self }
+        "fp" { Force-Push-Self }
         "8" { Config-RemoteUrl }
         "9" { Config-GitUser }
         "10" { Generate-SSHKey }
