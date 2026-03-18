@@ -1,4 +1,4 @@
-﻿﻿﻿﻿# ComfyUI Workflow Manager - Git 功能管理脚本 (PowerShell 版)
+﻿﻿﻿﻿﻿﻿﻿# ComfyUI Workflow Manager - Git 功能管理脚本 (PowerShell 版)
 # 仓库地址: git@github.com:aGROWLz/Comfy-Workflow-Manager.git
 
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -14,7 +14,7 @@ $PARENT_DIR = Split-Path -Parent $SCRIPT_DIR
 
 # 配置 - 使用项目内的 SSH 密钥
 $SSH_KEY = Join-Path $SCRIPT_DIR "ssh_keys\id_ed25519_github"
-$REPO_URL = "https://github.com/aGROWLz/Time-to-start"
+$REPO_URL = "git@github.com:aGROWLz/Butter-Auto-Unpack.git"
 
 # 颜色定义
 function Write-Color {
@@ -366,16 +366,31 @@ function Generate-SSHKey {
     
     $email = Read-Host "请输入 GitHub 邮箱"
     Write-Color "`n生成 SSH 密钥..." "Blue"
-    ssh-keygen -t ed25519 -C "$email" -f "$SSH_KEY" -N ""
     
-    Write-Color "`n✓ SSH 密钥生成成功" "Green"
-    Write-Color "密钥位置：" "Blue"
-    Write-Host "  私钥: $SSH_KEY"
-    Write-Host "  公钥: $($SSH_KEY).pub"
-    Write-Color "`n你的 SSH 公钥：" "Yellow"
-    Write-Host "========================================="
-    Get-Content "$($SSH_KEY).pub"
-    Write-Host "========================================="
+    # 确保使用正确的路径格式
+    $sshKeyPath = $SSH_KEY.Replace('\', '/')
+    ssh-keygen -t ed25519 -C "$email" -f "$sshKeyPath" -N '""'
+    
+    # 等待文件生成完成
+    Start-Sleep -Milliseconds 500
+    
+    $pubKeyPath = "$SSH_KEY.pub"
+    
+    if (Test-Path $pubKeyPath) {
+        Write-Color "`n✓ SSH 密钥生成成功" "Green"
+        Write-Color "密钥位置：" "Blue"
+        Write-Host "  私钥: $SSH_KEY"
+        Write-Host "  公钥: $pubKeyPath"
+        Write-Color "`n你的 SSH 公钥：" "Yellow"
+        Write-Host "========================================="
+        Get-Content $pubKeyPath
+        Write-Host "========================================="
+        Write-Color "`n请将上面的公钥添加到 GitHub:" "Yellow"
+        Write-Host "  https://github.com/settings/keys"
+    } else {
+        Write-Color "`n✗ SSH 密钥生成失败或公钥文件未找到" "Red"
+        Write-Color "预期路径: $pubKeyPath" "Yellow"
+    }
 }
 
 # 功能：更新工具自身
