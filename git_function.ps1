@@ -115,7 +115,13 @@ function Push-ToGitHub {
     if (git diff --cached --quiet) {
         Write-Color "没有需要提交的更改" "Yellow"
     } else {
-        git commit -m "feat: ComfyUI Workflow Manager 更新 (PS)"
+        $commitMsg = Read-Host "`n请输入提交信息"
+        if ([string]::IsNullOrWhiteSpace($commitMsg)) {
+            Write-Color "提交信息不能为空，已取消" "Yellow"
+            Pop-Location
+            return
+        }
+        git commit -m "$commitMsg"
         Write-Color "✓ 代码已提交" "Green"
     }
     
@@ -207,7 +213,13 @@ function Force-Push {
     Write-Color "`n添加文件..." "Blue"
     git add .
     if (-not (git diff --cached --quiet)) {
-        git commit -m "feat: 强制更新 (PS)"
+        $commitMsg = Read-Host "`n请输入提交信息"
+        if ([string]::IsNullOrWhiteSpace($commitMsg)) {
+            Write-Color "提交信息不能为空，已取消" "Yellow"
+            Pop-Location
+            return
+        }
+        git commit -m "$commitMsg"
     }
     
     Write-Color "`n强制推送到 GitHub..." "Blue"

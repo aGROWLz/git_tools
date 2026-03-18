@@ -184,10 +184,14 @@ push_to_github() {
     if git diff --cached --quiet; then
         echo -e "${YELLOW}没有需要提交的更改${NC}"
     else
-        git commit -m "feat: ComfyUI Workflow Manager 更新
-
-- 更新项目代码
-- 完善功能和文档"
+        echo ""
+        echo -n -e "${YELLOW}请输入提交信息: ${NC}"
+        read -r commit_msg
+        if [ -z "$commit_msg" ]; then
+            echo -e "${YELLOW}提交信息不能为空，已取消${NC}"
+            return
+        fi
+        git commit -m "$commit_msg"
         echo -e "${GREEN}✓ 代码已提交${NC}"
     fi
     
@@ -346,7 +350,14 @@ force_push() {
     git add .
     
     if ! git diff --cached --quiet; then
-        git commit -m "feat: 强制更新"
+        echo ""
+        echo -n -e "${YELLOW}请输入提交信息: ${NC}"
+        read -r commit_msg
+        if [ -z "$commit_msg" ]; then
+            echo -e "${YELLOW}提交信息不能为空，已取消${NC}"
+            return
+        fi
+        git commit -m "$commit_msg"
     fi
     
     echo ""
