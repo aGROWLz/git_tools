@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿# ComfyUI Workflow Manager - Git 功能管理脚本 (PowerShell 版)
+﻿﻿﻿﻿﻿﻿﻿﻿# ComfyUI Workflow Manager - Git 功能管理脚本 (PowerShell 版)
 # 仓库地址: git@github.com:aGROWLz/Comfy-Workflow-Manager.git
 
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -14,7 +14,7 @@ $PARENT_DIR = Split-Path -Parent $SCRIPT_DIR
 
 # 配置 - 使用项目内的 SSH 密钥
 $SSH_KEY = Join-Path $SCRIPT_DIR "ssh_keys\id_ed25519_github"
-$REPO_URL = "git@github.com:aGROWLz/Butter-Auto-Unpack.git"
+$REPO_URL = "git@github.com:aGROWLz/Gemini-API-openai.git"
 
 # 颜色定义
 function Write-Color {
@@ -86,16 +86,29 @@ function Setup-Remote {
     Pop-Location
 }
 
+# 辅助函数：设置远程仓库地址
+function Setup-RemoteWithUrl {
+    param([string]$Url)
+    Push-Location $PARENT_DIR
+    $remotes = git remote
+    if ($remotes -contains "origin") {
+        $currentUrl = git remote get-url origin
+        if ($currentUrl -ne $Url) {
+            git remote set-url origin $Url
+        }
+    } else {
+        git remote add origin $Url
+    }
+    Pop-Location
+}
+
 # 功能 1: 推送到 GitHub
 function Push-ToGitHub {
     Write-Color "`n==========================================" "Cyan"
     Write-Color "  推送到 GitHub" "Cyan"
     Write-Color "==========================================" "Cyan"
     
-    if (-not (Check-SSHKey)) { return }
-    Setup-GitSSH
     Init-GitRepo
-    Setup-Remote
     
     Push-Location $PARENT_DIR
     Write-Color "`n添加文件到暂存区..." "Blue"
@@ -125,18 +138,82 @@ function Push-ToGitHub {
         Write-Color "✓ 代码已提交" "Green"
     }
     
-    Write-Color "`n推送到 GitHub..." "Blue"
+    # 确保在 main 分支
     $branches = git branch
     if ($branches -notmatch "main") {
         git branch -M main
     }
     
-    git push -u origin main
-    if ($LASTEXITCODE -eq 0) {
-        Write-Color "`n✓ 推送成功！" "Green"
+    # 检查是否有 SSH 密钥
+    $useSSH = $false
+    if (Test-Path $SSH_KEY) {
+        $useSSH = $true
+        Write-Color "`n检测到 SSH 密钥，尝试使用 SSH 推送..." "Blue"
     } else {
-        Write-Color "`n✗ 推送失败" "Red"
-        Write-Color "提示：如果远程有更新，请先选择选项 2 拉取并合并" "Yellow"
+        Write-Color "`n未检测到 SSH 密钥，将使用 HTTPS 推送" "Yellow"
+    }
+    
+    # 尝试 SSH 推送
+    $pushSuccess = $false
+    if ($useSSH) {
+        # 从 REPO_URL 提取 SSH 地址
+        $sshUrl = $REPO_URL
+        if ($sshUrl -notlike "git@*") {
+            # 如果 REPO_URL 是 HTTPS，转换为 SSH
+            if ($sshUrl -match "https?://github\.com/([^/]+)/(.+?)(\.git)?$") {
+                $username = $matches[1]
+                $reponame = $matches[2] -replace "\.git$", ""
+                $sshUrl = "git@github.com:${username}/${reponame}.git"
+            }
+        }
+        
+        Setup-RemoteWithUrl $sshUrl
+        Setup-GitSSH
+        
+        Write-Color "`n推送到 GitHub (SSH)..." "Blue"
+        git push -u origin main 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            $pushSuccess = $true
+            Write-Color "`n✓ SSH 推送成功！" "Green"
+            $httpsUrl = $sshUrl -replace "git@github\.com:", "https://github.com/" -replace "\.git$", ""
+            Write-Color "仓库地址: $httpsUrl" "Blue"
+        } else {
+            Write-Color "`nSSH 推送失败，转为 HTTPS 推送..." "Yellow"
+        }
+    }
+    
+    # 如果 SSH 推送失败或没有 SSH 密钥，使用 HTTPS
+    if (-not $pushSuccess) {
+        # 从 REPO_URL 提取 HTTPS 地址
+        $httpsUrl = $REPO_URL
+        if ($httpsUrl -like "git@*") {
+            # 如果 REPO_URL 是 SSH，转换为 HTTPS
+            if ($httpsUrl -match "git@github\.com:([^/]+)/(.+)\.git$") {
+                $username = $matches[1]
+                $reponame = $matches[2]
+                $httpsUrl = "https://github.com/${username}/${reponame}.git"
+            }
+        } elseif ($httpsUrl -notlike "*.git") {
+            $httpsUrl = "${httpsUrl}.git"
+        }
+        
+        Setup-RemoteWithUrl $httpsUrl
+        $env:GIT_SSH_COMMAND = $null
+        
+        Write-Color "`n推送到 GitHub (HTTPS)..." "Blue"
+        Write-Color "请输入 GitHub 用户名和密码（或 Personal Access Token）" "Yellow"
+        
+        git push -u origin main
+        if ($LASTEXITCODE -eq 0) {
+            Write-Color "`n✓ HTTPS 推送成功！" "Green"
+            Write-Color "仓库地址: $httpsUrl" "Blue"
+        } else {
+            Write-Color "`n✗ 推送失败" "Red"
+            Write-Color "提示：" "Yellow"
+            Write-Host "  - 如果远程有更新，请先选择选项 2 拉取并合并"
+            Write-Host "  - 如果使用密码失败，请使用 Personal Access Token"
+            Write-Host "  - 生成 Token: https://github.com/settings/tokens"
+        }
     }
     Pop-Location
 }
@@ -204,10 +281,7 @@ function Force-Push {
         return
     }
     
-    if (-not (Check-SSHKey)) { return }
-    Setup-GitSSH
     Init-GitRepo
-    Setup-Remote
     
     Push-Location $PARENT_DIR
     Write-Color "`n添加文件..." "Blue"
@@ -222,16 +296,72 @@ function Force-Push {
         git commit -m "$commitMsg"
     }
     
-    Write-Color "`n强制推送到 GitHub..." "Blue"
+    # 确保在 main 分支
     $branches = git branch
     if ($branches -notmatch "main") {
         git branch -M main
     }
-    git push -f origin main
-    if ($LASTEXITCODE -eq 0) {
-        Write-Color "`n✓ 强制推送成功" "Green"
+    
+    # 检查是否有 SSH 密钥
+    $useSSH = $false
+    if (Test-Path $SSH_KEY) {
+        $useSSH = $true
+        Write-Color "`n检测到 SSH 密钥，尝试使用 SSH 强制推送..." "Blue"
     } else {
-        Write-Color "`n✗ 强制推送失败" "Red"
+        Write-Color "`n未检测到 SSH 密钥，将使用 HTTPS 强制推送" "Yellow"
+    }
+    
+    # 尝试 SSH 推送
+    $pushSuccess = $false
+    if ($useSSH) {
+        # 从 REPO_URL 提取 SSH 地址
+        $sshUrl = $REPO_URL
+        if ($sshUrl -notlike "git@*") {
+            if ($sshUrl -match "https?://github\.com/([^/]+)/(.+?)(\.git)?$") {
+                $username = $matches[1]
+                $reponame = $matches[2] -replace "\.git$", ""
+                $sshUrl = "git@github.com:${username}/${reponame}.git"
+            }
+        }
+        
+        Setup-RemoteWithUrl $sshUrl
+        Setup-GitSSH
+        
+        git push -f origin main 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            $pushSuccess = $true
+            Write-Color "`n✓ SSH 强制推送成功" "Green"
+        } else {
+            Write-Color "`nSSH 强制推送失败，转为 HTTPS 推送..." "Yellow"
+        }
+    }
+    
+    # 如果 SSH 推送失败或没有 SSH 密钥，使用 HTTPS
+    if (-not $pushSuccess) {
+        # 从 REPO_URL 提取 HTTPS 地址
+        $httpsUrl = $REPO_URL
+        if ($httpsUrl -like "git@*") {
+            if ($httpsUrl -match "git@github\.com:([^/]+)/(.+)\.git$") {
+                $username = $matches[1]
+                $reponame = $matches[2]
+                $httpsUrl = "https://github.com/${username}/${reponame}.git"
+            }
+        } elseif ($httpsUrl -notlike "*.git") {
+            $httpsUrl = "${httpsUrl}.git"
+        }
+        
+        Setup-RemoteWithUrl $httpsUrl
+        $env:GIT_SSH_COMMAND = $null
+        
+        Write-Color "`n强制推送到 GitHub (HTTPS)..." "Blue"
+        Write-Color "请输入 GitHub 用户名和密码（或 Personal Access Token）" "Yellow"
+        
+        git push -f origin main
+        if ($LASTEXITCODE -eq 0) {
+            Write-Color "`n✓ HTTPS 强制推送成功" "Green"
+        } else {
+            Write-Color "`n✗ 强制推送失败" "Red"
+        }
     }
     Pop-Location
 }
@@ -515,7 +645,7 @@ function Show-Menu {
     Write-Color "==========================================" "Cyan"
     Write-Host ""
     Write-Color "【Git 操作】" "Blue"
-    Write-Color "  1. 推送到 GitHub (SSH)" "Green"
+    Write-Color "  1. 推送到 GitHub (SSH/HTTPS 自动)" "Green"
     Write-Color "  2. 从远程拉取并合并" "Green"
     Write-Color "  3. 从远程拉取但不合并 (fetch)" "Green"
     Write-Color "  4. 强制推送 (慎用)" "Green"

@@ -53,7 +53,7 @@ show_menu() {
     echo -e "==========================================${NC}"
     echo ""
     echo -e "${BLUE}【Git 操作】${NC}"
-    echo -e "  ${GREEN}1${NC}. 推送到 GitHub (SSH)"
+    echo -e "  ${GREEN}1${NC}. 推送到 GitHub (SSH/HTTPS 自动)"
     echo -e "  ${GREEN}2${NC}. 从远程拉取并合并"
     echo -e "  ${GREEN}3${NC}. 从远程拉取但不合并 (fetch)"
     echo -e "  ${GREEN}4${NC}. 强制推送 (慎用)"
@@ -152,10 +152,7 @@ push_to_github() {
     echo -e "==========================================${NC}"
     echo ""
     
-    check_ssh_key || return 1
-    setup_git_ssh
     init_git_repo
-    setup_remote
     
     cd "$PARENT_DIR"
     echo ""
@@ -195,35 +192,101 @@ push_to_github() {
         echo -e "${GREEN}✓ 代码已提交${NC}"
     fi
     
-    echo ""
-    echo -e "${BLUE}推送到 GitHub...${NC}"
-    
     # 确保在 main 分支
     if ! git show-ref --verify --quiet refs/heads/main; then
         git branch -M main
     fi
     
-    # 根据仓库类型选择命令
-    if [[ "$REPO_URL" =~ ^git@ ]]; then
-        if GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes" git push -u origin main; then
+    # 检查是否有 SSH 密钥
+    local use_ssh=false
+    if [ -f "$SSH_KEY" ]; then
+        use_ssh=true
+        echo ""
+        echo -e "${BLUE}检测到 SSH 密钥，尝试使用 SSH 推送...${NC}"
+    else
+        echo ""
+        echo -e "${YELLOW}未检测到 SSH 密钥，将使用 HTTPS 推送${NC}"
+    fi
+    
+    # 尝试 SSH 推送
+    local push_success=false
+    if [ "$use_ssh" = true ]; then
+        # 从 REPO_URL 提取 SSH 地址
+        local ssh_url="$REPO_URL"
+        if [[ ! "$ssh_url" =~ ^git@ ]]; then
+            # 如果 REPO_URL 是 HTTPS，转换为 SSH
+            if [[ "$ssh_url" =~ https?://github\.com/([^/]+)/(.+)(\.git)?$ ]]; then
+                local username="${BASH_REMATCH[1]}"
+                local reponame="${BASH_REMATCH[2]}"
+                reponame="${reponame%.git}"
+                ssh_url="git@github.com:${username}/${reponame}.git"
+            fi
+        fi
+        
+        setup_remote_with_url "$ssh_url"
+        setup_git_ssh
+        
+        echo ""
+        echo -e "${BLUE}推送到 GitHub (SSH)...${NC}"
+        if GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes" git push -u origin main 2>/dev/null; then
+            push_success=true
             echo ""
-            echo -e "${GREEN}✓ 推送成功！${NC}"
-            echo -e "${BLUE}仓库地址: ${REPO_URL/git@github.com:/https://github.com/}${NC}"
+            echo -e "${GREEN}✓ SSH 推送成功！${NC}"
+            echo -e "${BLUE}仓库地址: ${ssh_url/git@github.com:/https://github.com/}${NC}"
         else
             echo ""
-            echo -e "${RED}✗ 推送失败${NC}"
-            echo -e "${YELLOW}提示：如果远程有更新，请先选择选项 2 拉取并合并${NC}"
+            echo -e "${YELLOW}SSH 推送失败，转为 HTTPS 推送...${NC}"
         fi
-    else
+    fi
+    
+    # 如果 SSH 推送失败或没有 SSH 密钥，使用 HTTPS
+    if [ "$push_success" = false ]; then
+        # 从 REPO_URL 提取 HTTPS 地址
+        local https_url="$REPO_URL"
+        if [[ "$https_url" =~ ^git@ ]]; then
+            # 如果 REPO_URL 是 SSH，转换为 HTTPS
+            if [[ "$https_url" =~ git@github\.com:([^/]+)/(.+)\.git$ ]]; then
+                local username="${BASH_REMATCH[1]}"
+                local reponame="${BASH_REMATCH[2]}"
+                https_url="https://github.com/${username}/${reponame}.git"
+            fi
+        elif [[ ! "$https_url" =~ \.git$ ]]; then
+            https_url="${https_url}.git"
+        fi
+        
+        setup_remote_with_url "$https_url"
+        unset GIT_SSH_COMMAND
+        
+        echo ""
+        echo -e "${BLUE}推送到 GitHub (HTTPS)...${NC}"
+        echo -e "${YELLOW}请输入 GitHub 用户名和密码（或 Personal Access Token）${NC}"
+        
         if git push -u origin main; then
             echo ""
-            echo -e "${GREEN}✓ 推送成功！${NC}"
-            echo -e "${BLUE}仓库地址: $REPO_URL${NC}"
+            echo -e "${GREEN}✓ HTTPS 推送成功！${NC}"
+            echo -e "${BLUE}仓库地址: $https_url${NC}"
         else
             echo ""
             echo -e "${RED}✗ 推送失败${NC}"
-            echo -e "${YELLOW}提示：如果远程有更新，请先选择选项 2 拉取并合并${NC}"
+            echo -e "${YELLOW}提示：${NC}"
+            echo "  - 如果远程有更新，请先选择选项 2 拉取并合并"
+            echo "  - 如果使用密码失败，请使用 Personal Access Token"
+            echo "  - 生成 Token: https://github.com/settings/tokens"
         fi
+    fi
+}
+
+# 辅助函数：设置远程仓库地址
+setup_remote_with_url() {
+    local url="$1"
+    cd "$PARENT_DIR"
+    if git remote | grep -q "^origin$"; then
+        local current_url=$(git remote get-url origin)
+        if [ "$current_url" != "$url" ]; then
+            git remote set-url origin "$url"
+        fi
+    else
+        git remote add origin "$url"
     fi
 }
 
@@ -339,10 +402,7 @@ force_push() {
         return
     fi
     
-    check_ssh_key || return 1
-    setup_git_ssh
     init_git_repo
-    setup_remote
     
     cd "$PARENT_DIR"
     echo ""
@@ -360,30 +420,93 @@ force_push() {
         git commit -m "$commit_msg"
     fi
     
-    echo ""
-    echo -e "${BLUE}强制推送到 GitHub...${NC}"
-    
+    # 确保在 main 分支
     if ! git show-ref --verify --quiet refs/heads/main; then
         git branch -M main
     fi
     
-    # 根据仓库类型选择命令
-    if [[ "$REPO_URL" =~ ^git@ ]]; then
-        if GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes" git push -f origin main; then
+    # 检查是否有 SSH 密钥
+    local use_ssh=false
+    if [ -f "$SSH_KEY" ]; then
+        use_ssh=true
+        echo ""
+        echo -e "${BLUE}检测到 SSH 密钥，尝试使用 SSH 强制推送...${NC}"
+    else
+        echo ""
+        echo -e "${YELLOW}未检测到 SSH 密钥，将使用 HTTPS 强制推送${NC}"
+    fi
+    
+    # 尝试 SSH 推送
+    local push_success=false
+    if [ "$use_ssh" = true ]; then
+        # 从 REPO_URL 提取 SSH 地址
+        local ssh_url="$REPO_URL"
+        if [[ ! "$ssh_url" =~ ^git@ ]]; then
+            if [[ "$ssh_url" =~ https?://github\.com/([^/]+)/(.+)(\.git)?$ ]]; then
+                local username="${BASH_REMATCH[1]}"
+                local reponame="${BASH_REMATCH[2]}"
+                reponame="${reponame%.git}"
+                ssh_url="git@github.com:${username}/${reponame}.git"
+            fi
+        fi
+        
+        setup_remote_with_url "$ssh_url"
+        setup_git_ssh
+        
+        echo ""
+        echo -e "${BLUE}强制推送到 GitHub (SSH)...${NC}"
+        if GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes" git push -f origin main 2>/dev/null; then
+            push_success=true
             echo ""
-            echo -e "${GREEN}✓ 强制推送成功${NC}"
+            echo -e "${GREEN}✓ SSH 强制推送成功${NC}"
         else
             echo ""
-            echo -e "${RED}✗ 强制推送失败${NC}"
+            echo -e "${YELLOW}SSH 强制推送失败，转为 HTTPS 推送...${NC}"
         fi
-    else
+    fi
+    
+    # 如果 SSH 推送失败或没有 SSH 密钥，使用 HTTPS
+    if [ "$push_success" = false ]; then
+        # 从 REPO_URL 提取 HTTPS 地址
+        local https_url="$REPO_URL"
+        if [[ "$https_url" =~ ^git@ ]]; then
+            if [[ "$https_url" =~ git@github\.com:([^/]+)/(.+)\.git$ ]]; then
+                local username="${BASH_REMATCH[1]}"
+                local reponame="${BASH_REMATCH[2]}"
+                https_url="https://github.com/${username}/${reponame}.git"
+            fi
+        elif [[ ! "$https_url" =~ \.git$ ]]; then
+            https_url="${https_url}.git"
+        fi
+        
+        setup_remote_with_url "$https_url"
+        unset GIT_SSH_COMMAND
+        
+        echo ""
+        echo -e "${BLUE}强制推送到 GitHub (HTTPS)...${NC}"
+        echo -e "${YELLOW}请输入 GitHub 用户名和密码（或 Personal Access Token）${NC}"
+        
         if git push -f origin main; then
             echo ""
-            echo -e "${GREEN}✓ 强制推送成功${NC}"
+            echo -e "${GREEN}✓ HTTPS 强制推送成功${NC}"
         else
             echo ""
             echo -e "${RED}✗ 强制推送失败${NC}"
         fi
+    fi
+}
+
+# 辅助函数：设置远程仓库地址
+setup_remote_with_url() {
+    local url="$1"
+    cd "$PARENT_DIR"
+    if git remote | grep -q "^origin$"; then
+        local current_url=$(git remote get-url origin)
+        if [ "$current_url" != "$url" ]; then
+            git remote set-url origin "$url"
+        fi
+    else
+        git remote add origin "$url"
     fi
 }
 
