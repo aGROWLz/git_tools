@@ -21,7 +21,24 @@ PARENT_DIR="$(dirname "$SCRIPT_DIR")"
 
 # 配置 - 使用项目内的 SSH 密钥
 SSH_KEY="$SCRIPT_DIR/ssh_keys/id_ed25519_github"
-REPO_URL="git@github.com:aGROWLz/Comfy-Workflow-Manager.git"
+
+# 获取远程仓库地址 - 优先使用父目录已配置的地址，否则使用默认地址
+get_remote_repo_url() {
+    cd "$PARENT_DIR"
+    if [ -d ".git" ]; then
+        if git remote | grep -q "^origin$"; then
+            local current_url
+            current_url=$(git remote get-url origin 2>/dev/null)
+            if [ -n "$current_url" ]; then
+                echo "$current_url"
+                return
+            fi
+        fi
+    fi
+    echo "git@github.com:aGROWLz/Comfy-Workflow-Manager.git"  # 默认地址
+}
+
+REPO_URL=$(get_remote_repo_url)
 
 # 自动添加 git_function 到父目录的 .gitignore
 auto_add_to_gitignore() {

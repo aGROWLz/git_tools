@@ -14,7 +14,25 @@ $PARENT_DIR = Split-Path -Parent $SCRIPT_DIR
 
 # 配置 - 使用项目内的 SSH 密钥
 $SSH_KEY = Join-Path $SCRIPT_DIR "ssh_keys\id_ed25519_github"
-$REPO_URL = "git@github.com:aGROWLz/Gemini-API-openai.git"
+
+# 获取远程仓库地址 - 优先使用父目录已配置的地址，否则使用默认地址
+function Get-RemoteRepoUrl {
+    Push-Location $PARENT_DIR
+    if (Test-Path ".git") {
+        $remotes = git remote
+        if ($remotes -contains "origin") {
+            $currentUrl = git remote get-url origin 2>$null
+            if ($currentUrl) {
+                Pop-Location
+                return $currentUrl
+            }
+        }
+    }
+    Pop-Location
+    return "https://github.com/aGROWLz/Butter-Auto-Unpack"  # 默认地址
+}
+
+$REPO_URL = Get-RemoteRepoUrl
 
 # 颜色定义
 function Write-Color {
