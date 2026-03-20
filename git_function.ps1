@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿# ComfyUI Workflow Manager - Git 功能管理脚本 (PowerShell 版)
+﻿﻿﻿﻿﻿﻿﻿﻿﻿# ComfyUI Workflow Manager - Git 功能管理脚本 (PowerShell 版)
 # 仓库地址: git@github.com:aGROWLz/Comfy-Workflow-Manager.git
 
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -224,21 +224,75 @@ function Pull-AndMerge {
     Write-Color "  从远程拉取并合并" "Cyan"
     Write-Color "==========================================" "Cyan"
     
-    if (-not (Check-SSHKey)) { return }
-    Setup-GitSSH
     Init-GitRepo
-    Setup-Remote
     
-    Push-Location $PARENT_DIR
-    Write-Color "`n从远程拉取代码..." "Blue"
-    git pull origin main --allow-unrelated-histories
-    if ($LASTEXITCODE -eq 0) {
-        Write-Color "`n✓ 拉取并合并成功" "Green"
+    # 检查是否有 SSH 密钥
+    $useSSH = $false
+    if (Test-Path $SSH_KEY) {
+        $useSSH = $true
+        Write-Color "`n检测到 SSH 密钥，尝试使用 SSH 拉取..." "Blue"
     } else {
-        Write-Color "`n✗ 拉取失败" "Red"
-        Write-Color "可能存在冲突，请手动解决或使用选项 5 强制拉取" "Yellow"
+        Write-Color "`n未检测到 SSH 密钥，将使用 HTTPS 拉取" "Yellow"
     }
-    Pop-Location
+    
+    # 尝试 SSH 拉取
+    $pullSuccess = $false
+    if ($useSSH) {
+        # 从 REPO_URL 提取 SSH 地址
+        $sshUrl = $REPO_URL
+        if ($sshUrl -notlike "git@*") {
+            # 如果 REPO_URL 是 HTTPS，转换为 SSH
+            if ($sshUrl -match "https?://github\.com/([^/]+)/(.+?)(\.git)?$") {
+                $username = $matches[1]
+                $reponame = $matches[2] -replace "\.git$", ""
+                $sshUrl = "git@github.com:${username}/${reponame}.git"
+            }
+        }
+        
+        Setup-RemoteWithUrl $sshUrl
+        Setup-GitSSH
+        
+        Push-Location $PARENT_DIR
+        Write-Color "`n从远程拉取代码 (SSH)..." "Blue"
+        git pull origin main --allow-unrelated-histories 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            $pullSuccess = $true
+            Write-Color "`n✓ SSH 拉取并合并成功" "Green"
+        } else {
+            Write-Color "`nSSH 拉取失败，转为 HTTPS 拉取..." "Yellow"
+        }
+        Pop-Location
+    }
+    
+    # 如果 SSH 拉取失败或没有 SSH 密钥，使用 HTTPS
+    if (-not $pullSuccess) {
+        # 从 REPO_URL 提取 HTTPS 地址
+        $httpsUrl = $REPO_URL
+        if ($httpsUrl -like "git@*") {
+            # 如果 REPO_URL 是 SSH，转换为 HTTPS
+            if ($httpsUrl -match "git@github\.com:([^/]+)/(.+)\.git$") {
+                $username = $matches[1]
+                $reponame = $matches[2]
+                $httpsUrl = "https://github.com/${username}/${reponame}.git"
+            }
+        } elseif ($httpsUrl -notlike "*.git") {
+            $httpsUrl = "${httpsUrl}.git"
+        }
+        
+        Setup-RemoteWithUrl $httpsUrl
+        $env:GIT_SSH_COMMAND = $null
+        
+        Push-Location $PARENT_DIR
+        Write-Color "`n从远程拉取代码 (HTTPS)..." "Blue"
+        git pull origin main --allow-unrelated-histories
+        if ($LASTEXITCODE -eq 0) {
+            Write-Color "`n✓ HTTPS 拉取并合并成功" "Green"
+        } else {
+            Write-Color "`n✗ 拉取失败" "Red"
+            Write-Color "可能存在冲突，请手动解决或使用选项 5 强制拉取" "Yellow"
+        }
+        Pop-Location
+    }
 }
 
 # 功能 3: 从远程拉取但不合并
@@ -247,24 +301,84 @@ function Fetch-Only {
     Write-Color "  从远程拉取但不合并" "Cyan"
     Write-Color "==========================================" "Cyan"
     
-    if (-not (Check-SSHKey)) { return }
-    Setup-GitSSH
     Init-GitRepo
-    Setup-Remote
     
-    Push-Location $PARENT_DIR
-    Write-Color "`n从远程获取代码..." "Blue"
-    git fetch origin
+    # 检查是否有 SSH 密钥
+    $useSSH = $false
+    if (Test-Path $SSH_KEY) {
+        $useSSH = $true
+        Write-Color "`n检测到 SSH 密钥，尝试使用 SSH 获取..." "Blue"
+    } else {
+        Write-Color "`n未检测到 SSH 密钥，将使用 HTTPS 获取" "Yellow"
+    }
+    
+    # 尝试 SSH 获取
+    $fetchSuccess = $false
+    if ($useSSH) {
+        # 从 REPO_URL 提取 SSH 地址
+        $sshUrl = $REPO_URL
+        if ($sshUrl -notlike "git@*") {
+            # 如果 REPO_URL 是 HTTPS，转换为 SSH
+            if ($sshUrl -match "https?://github\.com/([^/]+)/(.+?)(\.git)?$") {
+                $username = $matches[1]
+                $reponame = $matches[2] -replace "\.git$", ""
+                $sshUrl = "git@github.com:${username}/${reponame}.git"
+            }
+        }
+        
+        Setup-RemoteWithUrl $sshUrl
+        Setup-GitSSH
+        
+        Push-Location $PARENT_DIR
+        Write-Color "`n从远程获取代码 (SSH)..." "Blue"
+        git fetch origin 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            $fetchSuccess = $true
+            Write-Color "`n✓ SSH 获取成功" "Green"
+        } else {
+            Write-Color "`nSSH 获取失败，转为 HTTPS 获取..." "Yellow"
+        }
+        Pop-Location
+    }
+    
+    # 如果 SSH 获取失败或没有 SSH 密钥，使用 HTTPS
+    if (-not $fetchSuccess) {
+        # 从 REPO_URL 提取 HTTPS 地址
+        $httpsUrl = $REPO_URL
+        if ($httpsUrl -like "git@*") {
+            # 如果 REPO_URL 是 SSH，转换为 HTTPS
+            if ($httpsUrl -match "git@github\.com:([^/]+)/(.+)\.git$") {
+                $username = $matches[1]
+                $reponame = $matches[2]
+                $httpsUrl = "https://github.com/${username}/${reponame}.git"
+            }
+        } elseif ($httpsUrl -notlike "*.git") {
+            $httpsUrl = "${httpsUrl}.git"
+        }
+        
+        Setup-RemoteWithUrl $httpsUrl
+        $env:GIT_SSH_COMMAND = $null
+        
+        Push-Location $PARENT_DIR
+        Write-Color "`n从远程获取代码 (HTTPS)..." "Blue"
+        git fetch origin
+        if ($LASTEXITCODE -eq 0) {
+            Write-Color "`n✓ HTTPS 获取成功" "Green"
+        } else {
+            Write-Color "`n✗ 获取失败" "Red"
+        }
+        Pop-Location
+    }
+    
+    # 显示远程分支信息
     if ($LASTEXITCODE -eq 0) {
-        Write-Color "`n✓ 获取成功" "Green"
+        Push-Location $PARENT_DIR
         Write-Color "`n远程分支：" "Blue"
         git branch -r
         Write-Color "`n提示：代码已获取但未合并，使用以下命令查看差异：" "Yellow"
         Write-Host "  git diff main origin/main"
-    } else {
-        Write-Color "`n✗ 获取失败" "Red"
+        Pop-Location
     }
-    Pop-Location
 }
 
 # 功能 4: 强制推送
@@ -380,25 +494,88 @@ function Force-Pull {
         return
     }
     
-    if (-not (Check-SSHKey)) { return }
-    Setup-GitSSH
     Init-GitRepo
-    Setup-Remote
     
-    Push-Location $PARENT_DIR
-    Write-Color "`n获取远程代码..." "Blue"
-    git fetch origin
-    Write-Color "`n重置本地分支到远程状态..." "Blue"
-    
-    git checkout main 2>$null
-    if ($LASTEXITCODE -ne 0) {
-        git checkout -b main
+    # 检查是否有 SSH 密钥
+    $useSSH = $false
+    if (Test-Path $SSH_KEY) {
+        $useSSH = $true
+        Write-Color "`n检测到 SSH 密钥，尝试使用 SSH 强制拉取..." "Blue"
+    } else {
+        Write-Color "`n未检测到 SSH 密钥，将使用 HTTPS 强制拉取" "Yellow"
     }
     
-    git reset --hard origin/main
-    git clean -fd
-    Write-Color "`n✓ 强制拉取成功" "Green"
-    Pop-Location
+    # 尝试 SSH 强制拉取
+    $pullSuccess = $false
+    if ($useSSH) {
+        # 从 REPO_URL 提取 SSH 地址
+        $sshUrl = $REPO_URL
+        if ($sshUrl -notlike "git@*") {
+            # 如果 REPO_URL 是 HTTPS，转换为 SSH
+            if ($sshUrl -match "https?://github\.com/([^/]+)/(.+?)(\.git)?$") {
+                $username = $matches[1]
+                $reponame = $matches[2] -replace "\.git$", ""
+                $sshUrl = "git@github.com:${username}/${reponame}.git"
+            }
+        }
+        
+        Setup-RemoteWithUrl $sshUrl
+        Setup-GitSSH
+        
+        Push-Location $PARENT_DIR
+        Write-Color "`n获取远程代码 (SSH)..." "Blue"
+        git fetch origin 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Color "`n重置本地分支到远程状态..." "Blue"
+            git checkout main 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                git checkout -b main
+            }
+            git reset --hard origin/main
+            git clean -fd
+            $pullSuccess = $true
+            Write-Color "`n✓ SSH 强制拉取成功" "Green"
+        } else {
+            Write-Color "`nSSH 获取失败，转为 HTTPS 强制拉取..." "Yellow"
+        }
+        Pop-Location
+    }
+    
+    # 如果 SSH 强制拉取失败或没有 SSH 密钥，使用 HTTPS
+    if (-not $pullSuccess) {
+        # 从 REPO_URL 提取 HTTPS 地址
+        $httpsUrl = $REPO_URL
+        if ($httpsUrl -like "git@*") {
+            # 如果 REPO_URL 是 SSH，转换为 HTTPS
+            if ($httpsUrl -match "git@github\.com:([^/]+)/(.+)\.git$") {
+                $username = $matches[1]
+                $reponame = $matches[2]
+                $httpsUrl = "https://github.com/${username}/${reponame}.git"
+            }
+        } elseif ($httpsUrl -notlike "*.git") {
+            $httpsUrl = "${httpsUrl}.git"
+        }
+        
+        Setup-RemoteWithUrl $httpsUrl
+        $env:GIT_SSH_COMMAND = $null
+        
+        Push-Location $PARENT_DIR
+        Write-Color "`n获取远程代码 (HTTPS)..." "Blue"
+        git fetch origin
+        if ($LASTEXITCODE -eq 0) {
+            Write-Color "`n重置本地分支到远程状态..." "Blue"
+            git checkout main 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                git checkout -b main
+            }
+            git reset --hard origin/main
+            git clean -fd
+            Write-Color "`n✓ HTTPS 强制拉取成功" "Green"
+        } else {
+            Write-Color "`n✗ 强制拉取失败" "Red"
+        }
+        Pop-Location
+    }
 }
 
 # 功能 7: 查看提交历史

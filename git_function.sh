@@ -298,29 +298,74 @@ pull_and_merge() {
     echo -e "==========================================${NC}"
     echo ""
     
-    check_ssh_key || return 1
-    setup_git_ssh
     init_git_repo
-    setup_remote
     
-    cd "$PARENT_DIR"
-    echo ""
-    echo -e "${BLUE}从远程拉取代码...${NC}"
+    # 检查是否有 SSH 密钥
+    local use_ssh=false
+    if [ -f "$SSH_KEY" ]; then
+        use_ssh=true
+        echo ""
+        echo -e "${BLUE}检测到 SSH 密钥，尝试使用 SSH 拉取...${NC}"
+    else
+        echo ""
+        echo -e "${YELLOW}未检测到 SSH 密钥，将使用 HTTPS 拉取${NC}"
+    fi
     
-    # 根据仓库类型选择命令
-    if [[ "$REPO_URL" =~ ^git@ ]]; then
-        if GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes" git pull origin main --allow-unrelated-histories; then
+    # 尝试 SSH 拉取
+    local pull_success=false
+    if [ "$use_ssh" = true ]; then
+        # 从 REPO_URL 提取 SSH 地址
+        local ssh_url="$REPO_URL"
+        if [[ ! "$ssh_url" =~ ^git@ ]]; then
+            # 如果 REPO_URL 是 HTTPS，转换为 SSH
+            if [[ "$ssh_url" =~ https?://github\.com/([^/]+)/(.+)(\.git)?$ ]]; then
+                local username="${BASH_REMATCH[1]}"
+                local reponame="${BASH_REMATCH[2]}"
+                reponame="${reponame%.git}"
+                ssh_url="git@github.com:${username}/${reponame}.git"
+            fi
+        fi
+        
+        setup_remote_with_url "$ssh_url"
+        setup_git_ssh
+        
+        cd "$PARENT_DIR"
+        echo ""
+        echo -e "${BLUE}从远程拉取代码 (SSH)...${NC}"
+        if GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes" git pull origin main --allow-unrelated-histories 2>/dev/null; then
+            pull_success=true
             echo ""
-            echo -e "${GREEN}✓ 拉取并合并成功${NC}"
+            echo -e "${GREEN}✓ SSH 拉取并合并成功${NC}"
         else
             echo ""
-            echo -e "${RED}✗ 拉取失败${NC}"
-            echo -e "${YELLOW}可能存在冲突，请手动解决或使用选项 5 强制拉取${NC}"
+            echo -e "${YELLOW}SSH 拉取失败，转为 HTTPS 拉取...${NC}"
         fi
-    else
+    fi
+    
+    # 如果 SSH 拉取失败或没有 SSH 密钥，使用 HTTPS
+    if [ "$pull_success" = false ]; then
+        # 从 REPO_URL 提取 HTTPS 地址
+        local https_url="$REPO_URL"
+        if [[ "$https_url" =~ ^git@ ]]; then
+            # 如果 REPO_URL 是 SSH，转换为 HTTPS
+            if [[ "$https_url" =~ git@github\.com:([^/]+)/(.+)\.git$ ]]; then
+                local username="${BASH_REMATCH[1]}"
+                local reponame="${BASH_REMATCH[2]}"
+                https_url="https://github.com/${username}/${reponame}.git"
+            fi
+        elif [[ ! "$https_url" =~ \.git$ ]]; then
+            https_url="${https_url}.git"
+        fi
+        
+        setup_remote_with_url "$https_url"
+        unset GIT_SSH_COMMAND
+        
+        cd "$PARENT_DIR"
+        echo ""
+        echo -e "${BLUE}从远程拉取代码 (HTTPS)...${NC}"
         if git pull origin main --allow-unrelated-histories; then
             echo ""
-            echo -e "${GREEN}✓ 拉取并合并成功${NC}"
+            echo -e "${GREEN}✓ HTTPS 拉取并合并成功${NC}"
         else
             echo ""
             echo -e "${RED}✗ 拉取失败${NC}"
@@ -337,50 +382,92 @@ fetch_only() {
     echo -e "==========================================${NC}"
     echo ""
     
-    check_ssh_key || return 1
-    setup_git_ssh
     init_git_repo
-    setup_remote
     
-    cd "$PARENT_DIR"
-    echo ""
-    echo -e "${BLUE}从远程获取代码...${NC}"
+    # 检查是否有 SSH 密钥
+    local use_ssh=false
+    if [ -f "$SSH_KEY" ]; then
+        use_ssh=true
+        echo ""
+        echo -e "${BLUE}检测到 SSH 密钥，尝试使用 SSH 获取...${NC}"
+    else
+        echo ""
+        echo -e "${YELLOW}未检测到 SSH 密钥，将使用 HTTPS 获取${NC}"
+    fi
     
-    # 根据仓库类型选择命令
-    if [[ "$REPO_URL" =~ ^git@ ]]; then
-        if GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes" git fetch origin; then
+    # 尝试 SSH 获取
+    local fetch_success=false
+    if [ "$use_ssh" = true ]; then
+        # 从 REPO_URL 提取 SSH 地址
+        local ssh_url="$REPO_URL"
+        if [[ ! "$ssh_url" =~ ^git@ ]]; then
+            # 如果 REPO_URL 是 HTTPS，转换为 SSH
+            if [[ "$ssh_url" =~ https?://github\.com/([^/]+)/(.+)(\.git)?$ ]]; then
+                local username="${BASH_REMATCH[1]}"
+                local reponame="${BASH_REMATCH[2]}"
+                reponame="${reponame%.git}"
+                ssh_url="git@github.com:${username}/${reponame}.git"
+            fi
+        fi
+        
+        setup_remote_with_url "$ssh_url"
+        setup_git_ssh
+        
+        cd "$PARENT_DIR"
+        echo ""
+        echo -e "${BLUE}从远程获取代码 (SSH)...${NC}"
+        if GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes" git fetch origin 2>/dev/null; then
+            fetch_success=true
             echo ""
-            echo -e "${GREEN}✓ 获取成功${NC}"
-            echo ""
-            echo -e "${BLUE}远程分支：${NC}"
-            git branch -r
-            echo ""
-            echo -e "${YELLOW}提示：代码已获取但未合并，使用以下命令查看差异：${NC}"
-            echo "  git diff main origin/main"
-            echo ""
-            echo -e "${YELLOW}如需合并，使用以下命令：${NC}"
-            echo "  git merge origin/main"
+            echo -e "${GREEN}✓ SSH 获取成功${NC}"
         else
             echo ""
-            echo -e "${RED}✗ 获取失败${NC}"
+            echo -e "${YELLOW}SSH 获取失败，转为 HTTPS 获取...${NC}"
         fi
-    else
+    fi
+    
+    # 如果 SSH 获取失败或没有 SSH 密钥，使用 HTTPS
+    if [ "$fetch_success" = false ]; then
+        # 从 REPO_URL 提取 HTTPS 地址
+        local https_url="$REPO_URL"
+        if [[ "$https_url" =~ ^git@ ]]; then
+            # 如果 REPO_URL 是 SSH，转换为 HTTPS
+            if [[ "$https_url" =~ git@github\.com:([^/]+)/(.+)\.git$ ]]; then
+                local username="${BASH_REMATCH[1]}"
+                local reponame="${BASH_REMATCH[2]}"
+                https_url="https://github.com/${username}/${reponame}.git"
+            fi
+        elif [[ ! "$https_url" =~ \.git$ ]]; then
+            https_url="${https_url}.git"
+        fi
+        
+        setup_remote_with_url "$https_url"
+        unset GIT_SSH_COMMAND
+        
+        cd "$PARENT_DIR"
+        echo ""
+        echo -e "${BLUE}从远程获取代码 (HTTPS)...${NC}"
         if git fetch origin; then
             echo ""
-            echo -e "${GREEN}✓ 获取成功${NC}"
-            echo ""
-            echo -e "${BLUE}远程分支：${NC}"
-            git branch -r
-            echo ""
-            echo -e "${YELLOW}提示：代码已获取但未合并，使用以下命令查看差异：${NC}"
-            echo "  git diff main origin/main"
-            echo ""
-            echo -e "${YELLOW}如需合并，使用以下命令：${NC}"
-            echo "  git merge origin/main"
+            echo -e "${GREEN}✓ HTTPS 获取成功${NC}"
         else
             echo ""
             echo -e "${RED}✗ 获取失败${NC}"
         fi
+    fi
+    
+    # 显示远程分支信息
+    if [ $? -eq 0 ]; then
+        cd "$PARENT_DIR"
+        echo ""
+        echo -e "${BLUE}远程分支：${NC}"
+        git branch -r
+        echo ""
+        echo -e "${YELLOW}提示：代码已获取但未合并，使用以下命令查看差异：${NC}"
+        echo "  git diff main origin/main"
+        echo ""
+        echo -e "${YELLOW}如需合并，使用以下命令：${NC}"
+        echo "  git merge origin/main"
     fi
 }
 
@@ -528,37 +615,91 @@ force_pull() {
         return
     fi
     
-    check_ssh_key || return 1
-    setup_git_ssh
     init_git_repo
-    setup_remote
     
-    cd "$PARENT_DIR"
-    echo ""
-    echo -e "${BLUE}获取远程代码...${NC}"
-    
-    # 根据仓库类型选择命令
-    if [[ "$REPO_URL" =~ ^git@ ]]; then
-        GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes" git fetch origin
+    # 检查是否有 SSH 密钥
+    local use_ssh=false
+    if [ -f "$SSH_KEY" ]; then
+        use_ssh=true
+        echo ""
+        echo -e "${BLUE}检测到 SSH 密钥，尝试使用 SSH 强制拉取...${NC}"
     else
-        git fetch origin
+        echo ""
+        echo -e "${YELLOW}未检测到 SSH 密钥，将使用 HTTPS 强制拉取${NC}"
     fi
     
-    echo ""
-    echo -e "${BLUE}重置本地分支到远程状态...${NC}"
+    # 尝试 SSH 强制拉取
+    local pull_success=false
+    if [ "$use_ssh" = true ]; then
+        # 从 REPO_URL 提取 SSH 地址
+        local ssh_url="$REPO_URL"
+        if [[ ! "$ssh_url" =~ ^git@ ]]; then
+            # 如果 REPO_URL 是 HTTPS，转换为 SSH
+            if [[ "$ssh_url" =~ https?://github\.com/([^/]+)/(.+)(\.git)?$ ]]; then
+                local username="${BASH_REMATCH[1]}"
+                local reponame="${BASH_REMATCH[2]}"
+                reponame="${reponame%.git}"
+                ssh_url="git@github.com:${username}/${reponame}.git"
+            fi
+        fi
+        
+        setup_remote_with_url "$ssh_url"
+        setup_git_ssh
+        
+        cd "$PARENT_DIR"
+        echo ""
+        echo -e "${BLUE}获取远程代码 (SSH)...${NC}"
+        if GIT_SSH_COMMAND="ssh -i $SSH_KEY -o IdentitiesOnly=yes" git fetch origin 2>/dev/null; then
+            echo ""
+            echo -e "${BLUE}重置本地分支到远程状态...${NC}"
+            git checkout main 2>/dev/null || git checkout -b main
+            git reset --hard origin/main
+            git clean -fd
+            pull_success=true
+            echo ""
+            echo -e "${GREEN}✓ SSH 强制拉取成功${NC}"
+            echo -e "${YELLOW}本地代码已完全同步到远程状态${NC}"
+        else
+            echo ""
+            echo -e "${YELLOW}SSH 获取失败，转为 HTTPS 强制拉取...${NC}"
+        fi
+    fi
     
-    # 确保在 main 分支
-    git checkout main 2>/dev/null || git checkout -b main
-    
-    # 强制重置到远程分支
-    git reset --hard origin/main
-    
-    # 清理未跟踪的文件
-    git clean -fd
-    
-    echo ""
-    echo -e "${GREEN}✓ 强制拉取成功${NC}"
-    echo -e "${YELLOW}本地代码已完全同步到远程状态${NC}"
+    # 如果 SSH 强制拉取失败或没有 SSH 密钥，使用 HTTPS
+    if [ "$pull_success" = false ]; then
+        # 从 REPO_URL 提取 HTTPS 地址
+        local https_url="$REPO_URL"
+        if [[ "$https_url" =~ ^git@ ]]; then
+            # 如果 REPO_URL 是 SSH，转换为 HTTPS
+            if [[ "$https_url" =~ git@github\.com:([^/]+)/(.+)\.git$ ]]; then
+                local username="${BASH_REMATCH[1]}"
+                local reponame="${BASH_REMATCH[2]}"
+                https_url="https://github.com/${username}/${reponame}.git"
+            fi
+        elif [[ ! "$https_url" =~ \.git$ ]]; then
+            https_url="${https_url}.git"
+        fi
+        
+        setup_remote_with_url "$https_url"
+        unset GIT_SSH_COMMAND
+        
+        cd "$PARENT_DIR"
+        echo ""
+        echo -e "${BLUE}获取远程代码 (HTTPS)...${NC}"
+        if git fetch origin; then
+            echo ""
+            echo -e "${BLUE}重置本地分支到远程状态...${NC}"
+            git checkout main 2>/dev/null || git checkout -b main
+            git reset --hard origin/main
+            git clean -fd
+            echo ""
+            echo -e "${GREEN}✓ HTTPS 强制拉取成功${NC}"
+            echo -e "${YELLOW}本地代码已完全同步到远程状态${NC}"
+        else
+            echo ""
+            echo -e "${RED}✗ 强制拉取失败${NC}"
+        fi
+    fi
 }
 
 # 功能 6: 查看状态
