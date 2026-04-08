@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿# ComfyUI Workflow Manager - Git 功能管理脚本 (PowerShell 版)
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿# ComfyUI Workflow Manager - Git 功能管理脚本 (PowerShell 版)
 # 仓库地址: git@github.com:aGROWLz/Comfy-Workflow-Manager.git
 
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -830,6 +830,41 @@ function Force-Push-Self {
     Pop-Location
 }
 
+# 功能：强制更新工具自身（强制拉取覆盖本地）
+function Force-Pull-Self {
+    Write-Color "`n==========================================" "Cyan"
+    Write-Color "  强制更新工具自身 (git_tools)" "Cyan"
+    Write-Color "==========================================" "Cyan"
+    Write-Color "⚠️  警告：这会覆盖本地工具的所有更改！" "Red"
+    Write-Color "⚠️  所有未提交的本地修改都会丢失！" "Red"
+    
+    $confirm = Read-Host "`n确定要强制更新吗？(输入 YES 确认)"
+    if ($confirm -ne "YES") {
+        Write-Color "已取消" "Yellow"
+        return
+    }
+    
+    Push-Location $SCRIPT_DIR
+    if (-not (Test-Path ".git")) {
+        Write-Color "工具目录未关联 Git 仓库" "Yellow"
+    } else {
+        Write-Color "`n获取远程代码..." "Blue"
+        git fetch origin
+        
+        Write-Color "`n重置本地分支到远程状态..." "Blue"
+        git checkout main 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            git checkout -b main
+        }
+        git reset --hard origin/main
+        git clean -fd
+        
+        Write-Color "`n✓ 强制更新完成" "Green"
+        Write-Color "本地工具已完全同步到远程状态" "Yellow"
+    }
+    Pop-Location
+}
+
 # 功能 t: 测试 SSH 连接
 function Test-SSHConnection {
     Write-Color "`n==========================================" "Cyan"
@@ -878,6 +913,7 @@ function Show-Menu {
     Write-Host ""
     Write-Color "【工具自身 Git 操作】" "Blue"
     Write-Color "  u. 更新工具自身 (Pull)" "Green"
+    Write-Color "  fu. 强制更新工具自身 (Force Pull)" "Green"
     Write-Color "  p. 推送工具自身 (Push)" "Green"
     Write-Color "  fp. 强制推送工具自身 (Force Push)" "Green"
     Write-Host ""
@@ -913,6 +949,7 @@ while ($true) {
         }
         "7" { Show-History }
         "u" { Update-Self }
+        "fu" { Force-Pull-Self }
         "p" { Push-Self }
         "fp" { Force-Push-Self }
         "8" { Config-RemoteUrl }

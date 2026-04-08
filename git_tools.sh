@@ -80,6 +80,7 @@ show_menu() {
     echo ""
     echo -e "${BLUE}【工具自身 Git 操作】${NC}"
     echo -e "  ${GREEN}u${NC}. 更新工具自身 (Pull)"
+    echo -e "  ${GREEN}fu${NC}. 强制更新工具自身 (Force Pull)"
     echo -e "  ${GREEN}p${NC}. 推送工具自身 (Push)"
     echo -e "  ${GREEN}fp${NC}. 强制推送工具自身 (Force Push)"
     echo ""
@@ -1096,6 +1097,42 @@ force_push_self() {
     echo -e "${GREEN}✓ 强制推送完成${NC}"
 }
 
+# 功能：强制更新工具自身（强制拉取覆盖本地）
+force_pull_self() {
+    echo ""
+    echo -e "${CYAN}=========================================="
+    echo -e "  强制更新工具自身 (git_tools)"
+    echo -e "==========================================${NC}"
+    echo ""
+    echo -e "${RED}⚠️  警告：这会覆盖本地工具的所有更改！${NC}"
+    echo -e "${RED}⚠️  所有未提交的本地修改都会丢失！${NC}"
+    echo ""
+    echo -n -e "${YELLOW}确定要强制更新吗？(输入 YES 确认): ${NC}"
+    read -r confirm
+    if [ "$confirm" != "YES" ]; then
+        echo -e "${YELLOW}已取消${NC}"
+        return
+    fi
+    
+    cd "$SCRIPT_DIR"
+    if [ ! -d .git ]; then
+        echo -e "${YELLOW}工具目录未关联 Git 仓库${NC}"
+        return
+    fi
+    
+    echo -e "${BLUE}获取远程代码...${NC}"
+    git fetch origin
+    
+    echo -e "${BLUE}重置本地分支到远程状态...${NC}"
+    git checkout main 2>/dev/null || git checkout -b main
+    git reset --hard origin/main
+    git clean -fd
+    
+    echo ""
+    echo -e "${GREEN}✓ 强制更新完成${NC}"
+    echo -e "${YELLOW}本地工具已完全同步到远程状态${NC}"
+}
+
 # 主循环
 main() {
     # 启动时自动添加到 .gitignore
@@ -1129,6 +1166,9 @@ main() {
                 ;;
             u|U)
                 update_self
+                ;;
+            fu|FU)
+                force_pull_self
                 ;;
             p|P)
                 push_self
