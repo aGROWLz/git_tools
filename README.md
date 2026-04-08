@@ -1,4 +1,4 @@
-# Git Function - 独立 Git 管理工具
+# Git Tools - 独立 Git 管理工具
 
 这是一个独立的 Git 管理工具，使用项目内的 SSH 密钥进行 Git 操作，无需依赖系统的 `~/.ssh` 目录。
 
