@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿# ComfyUI Workflow Manager - Git 功能管理脚本 (PowerShell 版)
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿# ComfyUI Workflow Manager - Git 功能管理脚本 (PowerShell 版)
 # 仓库地址: git@github.com:aGROWLz/Comfy-Workflow-Manager.git
 
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -7,7 +7,7 @@ $Host.UI.RawUI.WindowTitle = "ComfyUI Workflow Manager - Git Tool"
 # 获取脚本所在目录
 $scriptPath = $PSCommandPath
 if ([string]::IsNullOrWhiteSpace($scriptPath)) {
-    $scriptPath = Join-Path $PSScriptRoot "git_function.ps1"
+    $scriptPath = Join-Path $PSScriptRoot "git_tools.ps1"
 }
 $SCRIPT_DIR = Split-Path -Parent $scriptPath
 $PARENT_DIR = Split-Path -Parent $SCRIPT_DIR
@@ -40,10 +40,10 @@ function Write-Color {
     Write-Host $Message -ForegroundColor $Color
 }
 
-# 自动添加 git_function 到父目录的 .gitignore
+# 自动添加 git_tools 到父目录的 .gitignore
 function Auto-AddToGitignore {
     $gitignoreFile = Join-Path $PARENT_DIR ".gitignore"
-    $ignorePattern = "git_function/"
+    $ignorePattern = "git_tools/"
     
     if (-not (Test-Path $gitignoreFile)) {
         $ignorePattern | Out-File -FilePath $gitignoreFile -Encoding utf8
@@ -51,8 +51,8 @@ function Auto-AddToGitignore {
     }
     
     $content = Get-Content $gitignoreFile
-    if ($content -notcontains $ignorePattern -and $content -notcontains "git_function") {
-        Add-Content $gitignoreFile "`n# Git function 工具（自动添加）`n$ignorePattern"
+    if ($content -notcontains $ignorePattern -and $content -notcontains "git_tools") {
+        Add-Content $gitignoreFile "`n# Git tools 工具（自动添加）`n$ignorePattern"
     }
 }
 
@@ -733,7 +733,7 @@ function Generate-SSHKey {
 # 功能：更新工具自身
 function Update-Self {
     Write-Color "`n==========================================" "Cyan"
-    Write-Color "  更新工具自身 (git_function)" "Cyan"
+    Write-Color "  更新工具自身 (git_tools)" "Cyan"
     Write-Color "==========================================" "Cyan"
     
     Push-Location $SCRIPT_DIR
@@ -750,7 +750,7 @@ function Update-Self {
 # 功能：推送工具自身
 function Push-Self {
     Write-Color "`n==========================================" "Cyan"
-    Write-Color "  推送工具自身 (git_function)" "Cyan"
+    Write-Color "  推送工具自身 (git_tools)" "Cyan"
     Write-Color "==========================================" "Cyan"
     
     Push-Location $SCRIPT_DIR
@@ -760,9 +760,9 @@ function Push-Self {
         Write-Color "`n添加更改..." "Blue"
         git add .
         
-        $commitMsg = Read-Host "请输入提交信息 (默认为: update: git_function tools)"
+        $commitMsg = Read-Host "请输入提交信息 (默认为: update: git_tools tools)"
         if ([string]::IsNullOrWhiteSpace($commitMsg)) {
-            $commitMsg = "update: git_function tools"
+            $commitMsg = "update: git_tools tools"
         }
         
         git commit -m $commitMsg
@@ -777,7 +777,7 @@ function Push-Self {
 # 功能：强制推送工具自身
 function Force-Push-Self {
     Write-Color "`n==========================================" "Cyan"
-    Write-Color "  强制推送工具自身 (git_function)" "Cyan"
+    Write-Color "  强制推送工具自身 (git_tools)" "Cyan"
     Write-Color "==========================================" "Cyan"
     Write-Color "⚠️  警告：这会覆盖远程工具仓库！" "Red"
     
@@ -793,7 +793,7 @@ function Force-Push-Self {
     } else {
         Write-Color "`n添加更改..." "Blue"
         git add .
-        git commit -m "force update: git_function tools (PS)"
+        git commit -m "force update: git_tools tools (PS)"
         
         Write-Color "`n强制推送到工具仓库..." "Blue"
         git push -f

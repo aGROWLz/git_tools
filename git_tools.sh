@@ -40,11 +40,11 @@ get_remote_repo_url() {
 
 REPO_URL=$(get_remote_repo_url)
 
-# 自动添加 git_function 到父目录的 .gitignore
+# 自动添加 git_tools 到父目录的 .gitignore
 auto_add_to_gitignore() {
     local parent_dir="$(dirname "$SCRIPT_DIR")"
     local gitignore_file="$parent_dir/.gitignore"
-    local ignore_pattern="git_function/"
+    local ignore_pattern="git_tools/"
     
     # 如果 .gitignore 不存在，创建它
     if [ ! -f "$gitignore_file" ]; then
@@ -53,10 +53,10 @@ auto_add_to_gitignore() {
     fi
     
     # 检查是否已经存在该规则
-    if ! grep -qxF "$ignore_pattern" "$gitignore_file" && ! grep -qxF "git_function" "$gitignore_file"; then
+    if ! grep -qxF "$ignore_pattern" "$gitignore_file" && ! grep -qxF "git_tools" "$gitignore_file"; then
         # 添加到 .gitignore
         echo "" >> "$gitignore_file"
-        echo "# Git function 工具（自动添加）" >> "$gitignore_file"
+        echo "# Git tools 工具（自动添加）" >> "$gitignore_file"
         echo "$ignore_pattern" >> "$gitignore_file"
     fi
 }
@@ -862,7 +862,7 @@ config_remote_url() {
     fi
     
     # 更新脚本中的 REPO_URL（保存 SSH 格式）
-    sed -i "s|^REPO_URL=.*|REPO_URL=\"$ssh_url\"|" "$SCRIPT_DIR/git_function.sh"
+    sed -i "s|^REPO_URL=.*|REPO_URL=\"$ssh_url\"|" "$SCRIPT_DIR/git_tools.sh"
     REPO_URL="$ssh_url"
     
     # 如果已经初始化了 Git，也更新远程地址（使用用户输入的格式）
@@ -997,7 +997,7 @@ generate_ssh_key() {
 update_self() {
     echo ""
     echo -e "${CYAN}=========================================="
-    echo -e "  更新工具自身 (git_function)"
+    echo -e "  更新工具自身 (git_tools)"
     echo -e "==========================================${NC}"
     echo ""
     
@@ -1016,7 +1016,7 @@ update_self() {
 push_self() {
     echo ""
     echo -e "${CYAN}=========================================="
-    echo -e "  推送工具自身 (git_function)"
+    echo -e "  推送工具自身 (git_tools)"
     echo -e "==========================================${NC}"
     echo ""
     
@@ -1032,7 +1032,7 @@ push_self() {
     echo -n -e "${YELLOW}请输入提交信息: ${NC}"
     read -r commit_msg
     if [ -z "$commit_msg" ]; then
-        commit_msg="update: git_function tools"
+        commit_msg="update: git_tools tools"
     fi
     
     git commit -m "$commit_msg" || echo "没有可提交的更改"
@@ -1046,7 +1046,7 @@ push_self() {
 force_push_self() {
     echo ""
     echo -e "${CYAN}=========================================="
-    echo -e "  强制推送工具自身 (git_function)"
+    echo -e "  强制推送工具自身 (git_tools)"
     echo -e "==========================================${NC}"
     echo ""
     echo -e "${RED}⚠️  警告：这会覆盖远程工具仓库！${NC}"
@@ -1065,7 +1065,7 @@ force_push_self() {
     
     echo -e "${BLUE}添加更改...${NC}"
     git add .
-    git commit -m "force update: git_function tools" || echo "没有可提交的更改"
+    git commit -m "force update: git_tools tools" || echo "没有可提交的更改"
     
     echo -e "${BLUE}强制推送到工具仓库...${NC}"
     git push -f
