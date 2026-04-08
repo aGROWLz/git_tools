@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿# ComfyUI Workflow Manager - Git 功能管理脚本 (PowerShell 版)
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿# ComfyUI Workflow Manager - Git 功能管理脚本 (PowerShell 版)
 # 仓库地址: git@github.com:aGROWLz/Comfy-Workflow-Manager.git
 
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -86,6 +86,33 @@ function Init-GitRepo {
     Pop-Location
 }
 
+# 自动配置 Git 用户信息（如果未配置）
+function Auto-ConfigGitUser {
+    Push-Location $PARENT_DIR
+    $userName = git config user.name 2>$null
+    $userEmail = git config user.email 2>$null
+    
+    if ([string]::IsNullOrWhiteSpace($userName) -or [string]::IsNullOrWhiteSpace($userEmail)) {
+        $pubKeyPath = "$SSH_KEY.pub"
+        if (Test-Path $pubKeyPath) {
+            $pubKeyContent = Get-Content $pubKeyPath -Raw
+            $emailMatch = [regex]::Match($pubKeyContent, '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
+            if ($emailMatch.Success) {
+                $sshEmail = $emailMatch.Value
+                Write-Color "检测到 Git 用户信息未配置，自动使用 SSH 密钥中的邮箱设置..." "Yellow"
+                if ([string]::IsNullOrWhiteSpace($userName)) {
+                    git config user.name "SSH User"
+                }
+                git config user.email $sshEmail
+                Write-Color "✓ 已自动配置 Git 用户信息" "Green"
+                Write-Host "  用户名: $(git config user.name)"
+                Write-Host "  邮箱: $(git config user.email)"
+            }
+        }
+    }
+    Pop-Location
+}
+
 # 配置远程仓库
 function Setup-Remote {
     Push-Location $PARENT_DIR
@@ -127,6 +154,7 @@ function Push-ToGitHub {
     Write-Color "==========================================" "Cyan"
     
     Init-GitRepo
+    Auto-ConfigGitUser
     
     Push-Location $PARENT_DIR
     Write-Color "`n添加文件到暂存区..." "Blue"

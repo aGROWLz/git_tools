@@ -145,6 +145,29 @@ init_git_repo() {
     fi
 }
 
+# 自动配置 Git 用户信息（如果未配置）
+auto_config_git_user() {
+    cd "$PARENT_DIR"
+    local user_name=$(git config user.name 2>/dev/null)
+    local user_email=$(git config user.email 2>/dev/null)
+    
+    if [ -z "$user_name" ] || [ -z "$user_email" ]; then
+        if [ -f "${SSH_KEY}.pub" ]; then
+            local ssh_email=$(grep -oE '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' "${SSH_KEY}.pub" | head -1)
+            if [ -n "$ssh_email" ]; then
+                echo -e "${YELLOW}检测到 Git 用户信息未配置，自动使用 SSH 密钥中的邮箱设置...${NC}"
+                if [ -z "$user_name" ]; then
+                    git config user.name "SSH User"
+                fi
+                git config user.email "$ssh_email"
+                echo -e "${GREEN}✓ 已自动配置 Git 用户信息${NC}"
+                echo "  用户名: $(git config user.name)"
+                echo "  邮箱: $(git config user.email)"
+            fi
+        fi
+    fi
+}
+
 # 配置远程仓库（在父目录）
 setup_remote() {
     cd "$PARENT_DIR"
@@ -170,6 +193,7 @@ push_to_github() {
     echo ""
     
     init_git_repo
+    auto_config_git_user
     
     cd "$PARENT_DIR"
     echo ""
