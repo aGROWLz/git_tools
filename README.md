@@ -31,9 +31,9 @@ git_tools/
 ### 1. 首次使用
 
 ```bash
-cd git_tools
-chmod +x git_tools.sh
-./git_tools.sh
+cd git_function
+chmod +x git_function.sh
+./git_function.sh
 ```
 
 ### 2. 生成 SSH 密钥（SSH 模式）
@@ -140,7 +140,7 @@ https://github.com/用户名/仓库名.git
 
 **方式 2：手动编辑**
 ```bash
-# 编辑 git_tools.sh 文件，修改 REPO_URL 变量
+# 编辑 git_function.sh 文件，修改 REPO_URL 变量
 REPO_URL="你的仓库地址"
 ```
 
@@ -161,21 +161,21 @@ SSH 地址（已保存）: git@github.com:aGROWLz/Comfy-Workflow-Manager.git
 ### SSH 密钥位置
 
 密钥自动存储在：
-- 私钥：`git_tools/ssh_keys/id_ed25519_github`
-- 公钥：`git_tools/ssh_keys/id_ed25519_github.pub`
+- 私钥：`git_function/ssh_keys/id_ed25519_github`
+- 公钥：`git_function/ssh_keys/id_ed25519_github.pub`
 
 ## 安全提示
 
 ⚠️ **重要**：
 - 私钥文件（`id_ed25519_github`）不应该提交到 Git 仓库
-- 脚本会**自动**将 `git_tools/` 添加到父项目的 `.gitignore` 中
+- 脚本会**自动**将 `git_function/` 添加到父项目的 `.gitignore` 中
 - 首次运行脚本时会自动保护你的密钥文件
 - 不要分享你的私钥给任何人
 
 ### 自动 .gitignore 保护
 
 脚本启动时会自动检查父目录的 `.gitignore` 文件：
-- 如果不存在，会自动创建并添加 `git_tools/` 规则
+- 如果不存在，会自动创建并添加 `git_function/` 规则
 - 如果已存在该规则，不会重复添加
 - 确保 SSH 密钥等敏感信息不会被意外提交
 
@@ -217,7 +217,7 @@ git config --global credential.helper cache
 确保脚本有执行权限：
 
 ```bash
-chmod +x git_tools.sh
+chmod +x git_function.sh
 ```
 
 ## 使用场景
@@ -267,14 +267,14 @@ chmod +x git_tools.sh
 
 这个工具可以独立使用，也可以集成到其他项目中：
 
-1. 将 `git_tools` 文件夹复制到目标项目
+1. 将 `git_function` 文件夹复制到目标项目
 2. 运行脚本会自动添加到目标项目的 `.gitignore`
 3. 配置仓库地址（选项 8）
 4. 如果使用 SSH，生成密钥或复用现有密钥
 5. 开始使用
 
 **重要说明：**
-- `git_tools` 可以有自己的 `.git` 仓库（用于工具本身的版本管理）
+- `git_function` 可以有自己的 `.git` 仓库（用于工具本身的版本管理）
 - 运行脚本时，所有 Git 操作都针对**外部项目**的 `.git`
 - 两个 Git 仓库互不干扰
 
@@ -283,10 +283,10 @@ chmod +x git_tools.sh
 ```
 外部项目/
 ├── .git/                    ← 脚本操作这个 Git 仓库
-├── .gitignore              ← 自动添加 git_tools/ 规则
-├── git_tools/
-│   ├── .git/               ← git_tools 自己的仓库（可选）
-│   ├── git_tools.sh     ← 运行这个脚本
+├── .gitignore              ← 自动添加 git_function/ 规则
+├── git_function/
+│   ├── .git/               ← git_function 自己的仓库（可选）
+│   ├── git_function.sh     ← 运行这个脚本
 │   ├── ssh_keys/           ← SSH 密钥（自动忽略）
 │   │   ├── id_ed25519_github
 │   │   └── id_ed25519_github.pub
